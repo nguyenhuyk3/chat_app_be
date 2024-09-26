@@ -20,6 +20,11 @@ type Client struct {
 	Username string `json:"username"`
 }
 
+type ClientOnMaster struct {
+	Conn        *websocket.Conn
+	RoomCreated chan *RoomInfo
+}
+
 func (c *Client) writeMessage() {
 	defer func() {
 		c.Conn.Close()
@@ -57,5 +62,45 @@ func (c *Client) readMessage(hub *Hub) {
 		}
 
 		hub.Broadcast <- msg
+	}
+}
+
+func (c *Client) readMessageOnMasterRoom(hub *Hub) {
+	defer func() {
+		hub.Unregister <- c
+		c.Conn.Close()
+	}()
+
+	for {
+		_, payload, err := c.Conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("error: %v", err)
+			}
+			break
+		}
+
+		msg := &Message{
+			Content:  string(payload),
+			RoomID:   c.RoomID,
+			Username: c.Username,
+		}
+
+		hub.BroadcastOnMasterRoom <- msg
+	}
+}
+
+func (c *Client) writeMessageOnMasterRoom() {
+	defer func() {
+		c.Conn.Close()
+	}()
+
+	for {
+		message, ok := <-c.Message
+		if !ok {
+			return
+		}
+
+		c.Conn.WriteJSON(message)
 	}
 }
