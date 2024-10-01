@@ -1,20 +1,22 @@
 package websocket
 
 import (
+	"be_chat_app/models"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
-type Handler struct {
+type WebsocketService struct {
 	hub *Hub
 }
 
-func NewHandler(h *Hub) *Handler {
-	return &Handler{
+func NewWebsocketService(h *Hub) *WebsocketService {
+	return &WebsocketService{
 		hub: h,
 	}
 }
@@ -24,7 +26,7 @@ type CreateRoomReq struct {
 	Name string `json:"name"`
 }
 
-func (h *Handler) CreateRoom(c *gin.Context) {
+func (ws *WebsocketService) CreateRoom(c *gin.Context) {
 	var req CreateRoomReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -32,7 +34,7 @@ func (h *Handler) CreateRoom(c *gin.Context) {
 		return
 	}
 
-	if _, ok := h.hub.Rooms[req.ID]; ok {
+	if _, ok := ws.hub.Rooms[req.ID]; ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Room id already exists!!"})
 
 		return
@@ -43,12 +45,12 @@ func (h *Handler) CreateRoom(c *gin.Context) {
 		Name: req.Name,
 	}
 
-	h.hub.Rooms[req.ID] = &Room{
+	ws.hub.Rooms[req.ID] = &Room{
 		RoomInfo: roomInfo,
 		Clients:  make(map[string]*Client),
 	}
 
-	h.hub.RoomInfo <- &roomInfo
+	ws.hub.RoomInfo <- &roomInfo
 
 	c.JSON(http.StatusOK, req)
 }
@@ -63,7 +65,7 @@ var upgrader = websocket.Upgrader{
 
 var id int = 1
 
-func (h *Handler) JoinMasterRoom(c *gin.Context) {
+func (ws *WebsocketService) JoinMasterRoom(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -78,7 +80,7 @@ func (h *Handler) JoinMasterRoom(c *gin.Context) {
 		Username: strconv.Itoa(id),
 	}
 
-	h.hub.ClientOnMasterRoom <- client
+	ws.hub.ClientOnMasterRoom <- client
 
 	// message := &Message{
 	// 	Content:  "User " + strconv.Itoa(id) + " has joined the master room",
@@ -87,13 +89,13 @@ func (h *Handler) JoinMasterRoom(c *gin.Context) {
 	// }
 
 	// h.hub.Clients.Clients[strconv.Itoa(id)].Message <- message
-	go client.readMessageOnMasterRoom(h.hub)
+	go client.readMessageOnMasterRoom(ws.hub)
 	go client.writeMessageOnMasterRoom()
 	fmt.Printf("Id %d", id)
 	id++
 }
 
-func (h *Handler) JoinRoom(c *gin.Context) {
+func (ws *WebsocketService) JoinRoom(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -118,11 +120,11 @@ func (h *Handler) JoinRoom(c *gin.Context) {
 		Username: username,
 	}
 
-	h.hub.Register <- cl
-	h.hub.Broadcast <- m
+	ws.hub.Register <- cl
+	ws.hub.Broadcast <- m
 
 	go cl.writeMessage()
-	cl.readMessage(h.hub)
+	cl.readMessage(ws.hub)
 }
 
 type RoomRes struct {
@@ -130,10 +132,10 @@ type RoomRes struct {
 	Name string `json:"name"`
 }
 
-func (h *Handler) GetRooms(c *gin.Context) {
+func (ws *WebsocketService) GetRooms(c *gin.Context) {
 	rooms := make([]RoomRes, 0)
 
-	for _, r := range h.hub.Rooms {
+	for _, r := range ws.hub.Rooms {
 		rooms = append(rooms, RoomRes{
 			ID:   r.ID,
 			Name: r.Name,
@@ -148,16 +150,16 @@ type ClientRes struct {
 	Username string `json:"username"`
 }
 
-func (h *Handler) GetClients(c *gin.Context) {
+func (ws *WebsocketService) GetClients(c *gin.Context) {
 	var clients []ClientRes
 	roomId := c.Param("roomId")
 
-	if _, ok := h.hub.Rooms[roomId]; !ok {
+	if _, ok := ws.hub.Rooms[roomId]; !ok {
 		clients = make([]ClientRes, 0)
 		c.JSON(http.StatusOK, clients)
 	}
 
-	for _, c := range h.hub.Rooms[roomId].Clients {
+	for _, c := range ws.hub.Rooms[roomId].Clients {
 		clients = append(clients, ClientRes{
 			ID:       c.ID,
 			Username: c.Username,
@@ -165,4 +167,22 @@ func (h *Handler) GetClients(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, clients)
+}
+
+func (ws *WebsocketService) MakeFriend(c *gin.Context) {
+	var req models.FriendRequest
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	req.Status = "pending"
+	req.CreatedAt = time.Now().Format("2006-01-02 15:04:05")
+
+	ws.hub.MakingFriend <- &req
+
+	c.JSON(http.StatusOK, gin.H{
+		"request": req,
+	})
 }

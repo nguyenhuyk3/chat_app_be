@@ -1,5 +1,9 @@
 package websocket
 
+import (
+	"be_chat_app/models"
+)
+
 type RoomInfo struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -29,6 +33,7 @@ type Hub struct {
 	Unregister            chan *Client
 	Broadcast             chan *Message
 	BroadcastOnMasterRoom chan *Message
+	MakingFriend          chan *models.FriendRequest
 }
 
 func NewHub() *Hub {
@@ -41,6 +46,7 @@ func NewHub() *Hub {
 		Unregister:            make(chan *Client),
 		Broadcast:             make(chan *Message, 5),
 		BroadcastOnMasterRoom: make(chan *Message, 5),
+		MakingFriend:          make(chan *models.FriendRequest, 5),
 	}
 }
 

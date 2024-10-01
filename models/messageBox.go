@@ -1,22 +1,20 @@
 package models
 
-import "time"
-
 type Payload struct {
-	Type    string
-	Content []byte
+	Type    string `json:"type"`
+	Content []byte `json:"content"`
 }
 
 type Message struct {
-	RoomId     string
-	SenderId   string
-	ReceiverId string
-	Payload    Payload
-	State      string
-	CreatedAt  time.Time
+	RoomId     string  `json:"roomId"`
+	SenderId   string  `json:"senderId"`
+	ReceiverId string  `json:"receiverId"`
+	Payload    Payload `json:"payload"`
+	State      string  `json:"state"`
+	CreatedAt  string  `json:"createdAt"`
 }
 
 type MessageBox struct {
-	Messages  []Message
-	CreatedAt time.Time
+	Messages  []Message `json:"messages"`
+	CreatedAt string    `json:"createdAt"`
 }
