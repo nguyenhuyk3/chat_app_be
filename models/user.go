@@ -32,15 +32,15 @@ type ReceivingInvitation struct {
 }
 
 type User struct {
-	Id                     string       `json:"id" firestore:"id"`
-	PhoneNumber            string       `json:"phoneNumber" firestore:"phoneNumber"`
-	Email                  string       `json:"email" firestore:"email"`
-	HashPassword           string       `json:"hashPassword" firestore:"hashPassword"`
-	SendingInvitationBox   string       `json:"sendingInvitationBox" firestore:"sendingInvitationBox"`
-	ReceivingInvitationBox string       `json:"receivingInvitationBox" firestore:"receivingInvitationBox"`
-	Friends                []string     `json:"friends" firestore:"friends"`
-	Information            Information  `json:"information" firestore:"information"`
-	MessageBoxes           MessageBoxes `json:"messageBoxes" firestore:"messageBoxes"`
-	CreatedAt              string       `json:"createdAt" firestore:"createdAt"`
-	UpdatedAt              string       `json:"updatedAt" firestore:"updatedAt"`
+	Id                       string       `json:"id" firestore:"id"`
+	PhoneNumber              string       `json:"phoneNumber" firestore:"phoneNumber"`
+	Email                    string       `json:"email" firestore:"email"`
+	HashPassword             string       `json:"hashPassword" firestore:"hashPassword"`
+	SendingInvitationBoxId   string       `json:"sendingInvitationBoxId" firestore:"sendingInvitationBoxId"`
+	ReceivingInvitationBoxId string       `json:"receivingInvitationBoxId" firestore:"receivingInvitationBoxId"`
+	Friends                  []string     `json:"friends" firestore:"friends"`
+	Information              Information  `json:"information" firestore:"information"`
+	MessageBoxes             MessageBoxes `json:"messageBoxes" firestore:"messageBoxes"`
+	CreatedAt                string       `json:"createdAt" firestore:"createdAt"`
+	UpdatedAt                string       `json:"updatedAt" firestore:"updatedAt"`
 }

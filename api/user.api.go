@@ -149,7 +149,7 @@ func (u *UserApi) MakeFriend(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 
-		status, err := u.UserServices.AddFriendReqToBox("sendingInvitationBoxes", fromUser.Id, fromUser.SendingInvitationBox, req)
+		status, err := u.UserServices.AddFriendReqToBox("sendingInvitationBoxes", fromUser.Id, fromUser.SendingInvitationBoxId, req)
 		errChan <- err
 		statusChan <- status
 	}()
@@ -157,7 +157,7 @@ func (u *UserApi) MakeFriend(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 
-		status, err := u.UserServices.AddFriendReqToBox("receivingInvitationBoxes", toUser.Id, toUser.ReceivingInvitationBox, req)
+		status, err := u.UserServices.AddFriendReqToBox("receivingInvitationBoxes", toUser.Id, toUser.ReceivingInvitationBoxId, req)
 		errChan <- err
 		statusChan <- status
 	}()

@@ -81,7 +81,7 @@ func (u *UserServices) UpdateExistingInvitation(docRef *firestore.DocumentRef, d
 	return http.StatusOK, nil
 }
 
-func (u *UserServices) UpdateUserInvitationBox(userId, collectionName, invitationId string) (int, error) {
+func (u *UserServices) UpdateUserInvitationBox(userId, collectionName, invitationBoxId string) (int, error) {
 	userDoc, status, err := u.GetUserById(userId)
 	if err != nil {
 		return status, fmt.Errorf("%v", err)
@@ -93,9 +93,9 @@ func (u *UserServices) UpdateUserInvitationBox(userId, collectionName, invitatio
 	}
 
 	if collectionName == "sendingInvitationBoxes" {
-		user.SendingInvitationBox = invitationId
+		user.SendingInvitationBoxId = invitationBoxId
 	} else if collectionName == "receivingInvitationBoxes" {
-		user.ReceivingInvitationBox = invitationId
+		user.ReceivingInvitationBoxId = invitationBoxId
 	}
 
 	userDocRef := u.FireStoreClient.Collection("users").Doc(userId)
@@ -146,10 +146,10 @@ func (u *UserServices) FindSubIdInDoc(subIdName, email string) (string, int, err
 	}
 
 	switch subIdName {
-	case "receivingInvitationBox":
-		return user.ReceivingInvitationBox, http.StatusOK, nil
-	case "sendingInvitationBox":
-		return user.SendingInvitationBox, http.StatusOK, nil
+	case "receivingInvitationBoxId":
+		return user.ReceivingInvitationBoxId, http.StatusOK, nil
+	case "sendingInvitationBoxId":
+		return user.SendingInvitationBoxId, http.StatusOK, nil
 	default:
 		return "", http.StatusBadRequest, fmt.Errorf("subId %s not found in %s struct", subIdName, email)
 	}
@@ -275,7 +275,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (int, err
 	go func() {
 		defer wg.Done()
 
-		sendingInvitationBoxId, status, err := u.FindSubIdInDoc("sendingInvitationBox", fromUserEmail)
+		sendingInvitationBoxId, status, err := u.FindSubIdInDoc("sendingInvitationBoxId", fromUserEmail)
 		fmt.Println(sendingInvitationBoxId)
 		if err != nil {
 			mu.Lock()
@@ -300,7 +300,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (int, err
 	go func() {
 		defer wg.Done()
 
-		receivingInvitationBoxId, status, err := u.FindSubIdInDoc("receivingInvitationBox", toUserEmail)
+		receivingInvitationBoxId, status, err := u.FindSubIdInDoc("receivingInvitationBoxId", toUserEmail)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
