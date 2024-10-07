@@ -48,96 +48,47 @@ func (u *UserApi) MakeFriend(c *gin.Context) {
 	var finalErr error
 	var finalStatus int
 	var fromUser, toUser models.User
+	var fromUserId, toUserId string
 
-	// Channel to store whether the user exists or not
-	existsChan := make(chan bool, 1)
-
-	// We have 2 work to complete
-	wg.Add(2)
-
-	// Check if user exists
+	wg.Add(1)
 	go func() {
-		// Decreasing counter by 1 when this goroutine finishes
 		defer wg.Done()
 
-		exists, status, err := u.UserServices.CheckUserIfExistByEmail(req.ToUserEmail)
+		fUser, fFromUserId, status, err := u.UserServices.GetUserByEmail(req.FromUserInfor.FromUserEmail)
 		if err != nil {
 			mu.Lock()
 			finalErr = err
 			finalStatus = status
 			mu.Unlock()
-
 			return
 		}
-
-		if !exists {
-			mu.Lock()
-			finalErr = fmt.Errorf("to user not found")
-			finalStatus = http.StatusNotFound
-			mu.Unlock()
-
-			existsChan <- false
-
-			return
-		}
-
-		existsChan <- true
-	}()
-
-	// Get infor of sender
-	go func() {
-		defer wg.Done()
-
-		fUser, status, err := u.UserServices.GetUserByEmail(req.FromUserInfor.FromUserEmail)
-		if err != nil {
-			mu.Lock()
-			finalErr = err
-			finalStatus = status
-			mu.Unlock()
-
-			return
-		}
-
-		mu.Lock()
+		fromUserId = fFromUserId
 		fromUser = fUser
-		mu.Unlock()
 	}()
-
 	wg.Wait()
 
 	if finalErr != nil {
 		c.JSON(finalStatus, gin.H{"error": fmt.Sprintf("%v", finalErr)})
-
-		return
-	}
-
-	if !<-existsChan {
-		c.JSON(http.StatusNotFound, gin.H{"error": "to user not found"})
-
 		return
 	}
 
 	wg.Add(1)
-
 	go func() {
 		defer wg.Done()
 
-		tUser, status, err := u.UserServices.GetUserByEmail(req.ToUserEmail)
+		tUser, tUserId, status, err := u.UserServices.GetUserByEmail(req.ToUserEmail)
 		if err != nil {
 			finalStatus = status
 			finalErr = err
-
 			return
 		}
-
+		toUserId = tUserId
 		toUser = tUser
 	}()
-
 	wg.Wait()
 
 	if finalErr != nil {
 		c.JSON(finalStatus, gin.H{"error": fmt.Sprintf("%v", finalErr)})
-
 		return
 	}
 
@@ -145,23 +96,20 @@ func (u *UserApi) MakeFriend(c *gin.Context) {
 	statusChan := make(chan int, 2)
 
 	wg.Add(2)
-
 	go func() {
 		defer wg.Done()
 
-		status, err := u.UserServices.AddFriendReqToBox("sendingInvitationBoxes", fromUser.Id, fromUser.SendingInvitationBoxId, req)
+		status, err := u.UserServices.AddFriendReqToBox("sendingInvitationBoxes", fromUserId, fromUser.SendingInvitationBoxId, req)
 		errChan <- err
 		statusChan <- status
 	}()
-
 	go func() {
 		defer wg.Done()
 
-		status, err := u.UserServices.AddFriendReqToBox("receivingInvitationBoxes", toUser.Id, toUser.ReceivingInvitationBoxId, req)
+		status, err := u.UserServices.AddFriendReqToBox("receivingInvitationBoxes", toUserId, toUser.ReceivingInvitationBoxId, req)
 		errChan <- err
 		statusChan <- status
 	}()
-
 	wg.Wait()
 
 	close(errChan)
@@ -171,7 +119,6 @@ func (u *UserApi) MakeFriend(c *gin.Context) {
 		if err != nil {
 			finalErr = err
 			finalStatus = <-statusChan
-
 			break
 		}
 	}
@@ -187,7 +134,7 @@ func (u *UserApi) MakeFriend(c *gin.Context) {
 func (u *UserApi) GetUserByEmail(c *gin.Context) {
 	var email string = c.Query("email")
 
-	user, status, err := u.UserServices.GetUserByEmail(email)
+	user, _, status, err := u.UserServices.GetUserByEmail(email)
 	if err != nil {
 		c.JSON(status, gin.H{
 			"error": err.Error(),
@@ -201,8 +148,8 @@ func (u *UserApi) GetUserByEmail(c *gin.Context) {
 }
 
 type AddFriendReq struct {
-	ToUserEmail   string `json:"toUserEmail"`
 	FromUserEmail string `json:"fromUserEmail"`
+	ToUserEmail   string `json:"toUserEmail"`
 }
 
 func (u *UserApi) AcceptFriend(c *gin.Context) {
@@ -210,14 +157,12 @@ func (u *UserApi) AcceptFriend(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
-
 		return
 	}
 
-	status, err := u.UserServices.AcceptFriend(req.ToUserEmail, req.FromUserEmail)
+	_, _, status, err := u.UserServices.AcceptFriend(req.ToUserEmail, req.FromUserEmail)
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
-
 		return
 	}
 
@@ -230,11 +175,10 @@ func (u *UserApi) GetReceivingInvitationBox(c *gin.Context) {
 	makeFriendReq, status, err := u.UserServices.GetReceivingInvitationBox(invitationBoxId)
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
-
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"make_friend_request": makeFriendReq})
+	c.JSON(http.StatusOK, gin.H{"makeFriendRequests": makeFriendReq})
 }
 
 func (u *UserApi) GetSendingInvitationBox(c *gin.Context) {
@@ -243,9 +187,82 @@ func (u *UserApi) GetSendingInvitationBox(c *gin.Context) {
 	makeFriendReq, status, err := u.UserServices.GetSendingInvitationBox(invitationBoxId)
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"makeFriendRequests": makeFriendReq})
+}
+
+func (u *UserApi) GetSubIds(c *gin.Context) {
+	email := c.Query("email")
+
+	subIds, status, err := u.UserServices.GetSubIdsByEmail(email)
+
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"email":                 email,
+		"userId":                subIds.UserId,
+		"receivingInvitationId": subIds.ReceivingInvitationBoxId,
+		"sendingInvitationId":   subIds.SendingInvitationBoxId,
+	})
+}
+
+type DeleteFriendReq struct {
+	InvitationBoxId string `json:"invitationBoxId"`
+	FromUserEmail   string `json:"fromUserEmail"`
+	ToUserEmail     string `json:"toUserEmail"`
+}
+
+func (u *UserApi) DeleteFriendRequestForSending(c *gin.Context) {
+	var req DeleteFriendReq
+
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		return
+	}
+
+	var fromUserBoxType = "sendingInvitationBoxes"
+	var toUserBoxType = "receivingInvitationBoxes"
+
+	status, err := u.UserServices.DeleteFriendRequest(fromUserBoxType, toUserBoxType,
+		req.InvitationBoxId,
+		req.FromUserEmail, req.ToUserEmail)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "perform sucessfully",
+	})
+}
+
+func (u *UserApi) DeleteFriendRequestForReceiving(c *gin.Context) {
+	var req DeleteFriendReq
+
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
 
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"make_friend_request": makeFriendReq})
+	var fromUserBoxType = "receivingInvitationBoxes"
+	var toUserBoxType = "sendingInvitationBoxes"
+
+	status, err := u.UserServices.DeleteFriendRequest(fromUserBoxType, toUserBoxType,
+		req.InvitationBoxId,
+		req.FromUserEmail, req.ToUserEmail)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "perform sucessfully",
+	})
 }

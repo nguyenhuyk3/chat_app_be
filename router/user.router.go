@@ -5,12 +5,13 @@ import (
 	"be_chat_app/internal/services/user"
 	"time"
 
-	"cloud.google.com/go/firestore"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func InitUserRouter(r *gin.Engine, firebaseClient *firestore.Client) {
+var UserServices *user.UserServices
+
+func InitUserRouter(r *gin.Engine, userServices *user.UserServices) {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -20,13 +21,15 @@ func InitUserRouter(r *gin.Engine, firebaseClient *firestore.Client) {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	userServices := user.NewUserServices(firebaseClient)
 	userApi := api.NewUserApi(userServices)
 
 	r.GET("/users/search", userApi.SearchUserIdByEmail)
 	r.GET("/users/get_user", userApi.GetUserByEmail)
 	r.GET("/users/get_receiving_invitation_box", userApi.GetReceivingInvitationBox)
 	r.GET("/users/get_sending_invitation_box", userApi.GetSendingInvitationBox)
+	r.GET("/users/get_sub_ids", userApi.GetSubIds)
 	r.POST("/users/make_friend", userApi.MakeFriend)
-	r.POST("/users/accept_friend", userApi.AcceptFriend)
+	// r.POST("/users/accept_friend", userApi.AcceptFriend)
+	r.POST("/users/delete_friend_request_for_sending", userApi.DeleteFriendRequestForSending)
+	r.POST("/users/delete_friend_request_for_receiving", userApi.DeleteFriendRequestForReceiving)
 }

@@ -6,8 +6,6 @@ type Information struct {
 	DayOfBirth string `json:"dayOfBirth" firestore:"dayOfBirth"`
 }
 
-type MessageBoxes []string
-
 type FromUserInfor struct {
 	FromUserEmail string `json:"fromUserEmail" firestore:"fromUserEmail"`
 	FromUserName  string `json:"fromUserName" firestore:"fromUserName"`
@@ -21,26 +19,25 @@ type FriendRequest struct {
 	CreatedAt     string        `json:"createdAt" firestore:"createdAt"`
 }
 
-type SendingInvitation struct {
+type SendingInvitationBox struct {
 	// OwnerId        string          `json:"ownerId" firestore:"ownerId"`
 	FriendRequests []FriendRequest `json:"friendRequests" firestore:"friendRequests"`
 }
 
-type ReceivingInvitation struct {
+type ReceivingInvitationBox struct {
 	// OwnerId        string          `json:"ownerId" firestore:"ownerId"`
 	FriendRequests []FriendRequest `json:"friendRequests" firestore:"friendRequests"`
 }
 
 type User struct {
-	Id                       string       `json:"id" firestore:"id"`
-	PhoneNumber              string       `json:"phoneNumber" firestore:"phoneNumber"`
-	Email                    string       `json:"email" firestore:"email"`
-	HashPassword             string       `json:"hashPassword" firestore:"hashPassword"`
-	SendingInvitationBoxId   string       `json:"sendingInvitationBoxId" firestore:"sendingInvitationBoxId"`
-	ReceivingInvitationBoxId string       `json:"receivingInvitationBoxId" firestore:"receivingInvitationBoxId"`
-	Friends                  []string     `json:"friends" firestore:"friends"`
-	Information              Information  `json:"information" firestore:"information"`
-	MessageBoxes             MessageBoxes `json:"messageBoxes" firestore:"messageBoxes"`
-	CreatedAt                string       `json:"createdAt" firestore:"createdAt"`
-	UpdatedAt                string       `json:"updatedAt" firestore:"updatedAt"`
+	PhoneNumber              string      `json:"phoneNumber" firestore:"phoneNumber"`
+	Email                    string      `json:"email" firestore:"email"`
+	HashPassword             string      `json:"hashPassword" firestore:"hashPassword"`
+	SendingInvitationBoxId   string      `json:"sendingInvitationBoxId" firestore:"sendingInvitationBoxId"`
+	ReceivingInvitationBoxId string      `json:"receivingInvitationBoxId" firestore:"receivingInvitationBoxId"`
+	Friends                  []string    `json:"friends" firestore:"friends"`
+	Information              Information `json:"information" firestore:"information"`
+	MessageBoxes             []string    `json:"messageBoxes" firestore:"messageBoxes"`
+	CreatedAt                string      `json:"createdAt" firestore:"createdAt"`
+	UpdatedAt                string      `json:"updatedAt" firestore:"updatedAt"`
 }

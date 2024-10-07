@@ -2,7 +2,8 @@ package main
 
 import (
 	"be_chat_app/cmd"
-	"be_chat_app/internal/services/websocket"
+	"be_chat_app/internal/services/user"
+	websocketv2 "be_chat_app/internal/services/websocketV2"
 	appRouter "be_chat_app/router"
 	"log"
 
@@ -18,13 +19,14 @@ func main() {
 
 	router := gin.Default()
 
-	hub := websocket.NewHub()
-	websocketService := websocket.NewWebsocketService(hub)
+	hub := websocketv2.NewHub()
+	userServices := user.NewUserServices(client)
+	webSocketServices := websocketv2.NewWebsocketService(hub)
 
 	go hub.Run()
 
-	appRouter.InitWebsocketRouter(router, websocketService)
-	appRouter.InitUserRouter(router, client)
+	appRouter.InitWebsocketV2Router(router, webSocketServices, userServices)
+	appRouter.InitUserRouter(router, userServices)
 
 	router.Run(":8080")
 }

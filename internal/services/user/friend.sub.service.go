@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
-	"time"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/grpc/codes"
@@ -15,12 +13,12 @@ import (
 
 func (u *UserServices) BuildNewInvitation(collectionName string, makeFriendReq models.FriendRequest) interface{} {
 	if collectionName == "sendingInvitations" {
-		return models.SendingInvitation{
+		return models.SendingInvitationBox{
 			// OwnerId:        userId,
 			FriendRequests: []models.FriendRequest{makeFriendReq},
 		}
 	}
-	return models.ReceivingInvitation{
+	return models.ReceivingInvitationBox{
 		// OwnerId:        userId,
 		FriendRequests: []models.FriendRequest{makeFriendReq},
 	}
@@ -35,7 +33,6 @@ func (u *UserServices) CreateNewInvitationDoc(collectionName string, makeFriendR
 	if err != nil {
 		return "", http.StatusInternalServerError, fmt.Errorf("failed to add new invitation to %s: %v", collectionName, err)
 	}
-
 	return docRef.ID, http.StatusOK, nil
 }
 
@@ -46,7 +43,6 @@ func (u *UserServices) CreateNewInvitationDocHavingDocRef(docRef *firestore.Docu
 	if err != nil {
 		return "", http.StatusInternalServerError, fmt.Errorf("failed to create new %s invitation: %v", collectionName, err)
 	}
-
 	return docRef.ID, http.StatusOK, nil
 }
 
@@ -54,7 +50,7 @@ func (u *UserServices) UpdateExistingInvitation(docRef *firestore.DocumentRef, d
 	var invitation interface{}
 
 	if collectionName == "sendingInvitations" {
-		var sendingInvitation models.SendingInvitation
+		var sendingInvitation models.SendingInvitationBox
 		err := docSnap.DataTo(&sendingInvitation)
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to map document data: %v", err)
@@ -63,7 +59,7 @@ func (u *UserServices) UpdateExistingInvitation(docRef *firestore.DocumentRef, d
 		sendingInvitation.FriendRequests = append(sendingInvitation.FriendRequests, makeFriendReq)
 		invitation = sendingInvitation
 	} else {
-		var receivingInvitation models.ReceivingInvitation
+		var receivingInvitation models.ReceivingInvitationBox
 		err := docSnap.DataTo(&receivingInvitation)
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to map document data: %v", err)
@@ -77,7 +73,6 @@ func (u *UserServices) UpdateExistingInvitation(docRef *firestore.DocumentRef, d
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to update %s invitations: %v", collectionName, err)
 	}
-
 	return http.StatusOK, nil
 }
 
@@ -103,44 +98,12 @@ func (u *UserServices) UpdateUserInvitationBox(userId, collectionName, invitatio
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to update user document: %v", err)
 	}
-
 	return http.StatusOK, nil
 }
 
-func (u *UserServices) AddFriendReqToBox(collectionName, userId, friendRequestBoxId string, makeFriendReq models.FriendRequest) (int, error) {
-	makeFriendReq.CreatedAt = time.Now().Format("2006-01-02 15:04:05")
-
-	if friendRequestBoxId == "" {
-		invitationId, status, err := u.CreateNewInvitationDoc(collectionName, makeFriendReq)
-		if err != nil {
-			return status, fmt.Errorf("%v", err)
-		}
-
-		return u.UpdateUserInvitationBox(userId, collectionName, invitationId)
-	}
-
-	docRef := u.FireStoreClient.Collection(collectionName).Doc(friendRequestBoxId)
-	docSnap, err := docRef.Get(context.Background())
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			invitationId, status, err := u.CreateNewInvitationDocHavingDocRef(docRef, collectionName, userId, makeFriendReq)
-			if err != nil {
-				return status, fmt.Errorf("%v", err)
-			}
-
-			return u.UpdateUserInvitationBox(userId, collectionName, invitationId)
-		}
-
-		return http.StatusNotFound, fmt.Errorf("failed to retrieve document: %v", err)
-	}
-
-	return u.UpdateExistingInvitation(docRef, docSnap, collectionName, makeFriendReq)
-}
-
 func (u *UserServices) FindSubIdInDoc(subIdName, email string) (string, int, error) {
-	user, status, err := u.GetUserByEmail(email)
+	user, _, status, err := u.GetUserByEmail(email)
 
-	fmt.Println(user)
 	if err != nil {
 		return "", status, fmt.Errorf("%v", err)
 	}
@@ -155,6 +118,12 @@ func (u *UserServices) FindSubIdInDoc(subIdName, email string) (string, int, err
 	}
 }
 
+type SubIds struct {
+	UserId                   string `json:"userId"`
+	ReceivingInvitationBoxId string `json:"receivingInvitationBoxId"`
+	SendingInvitationBoxId   string `json:"sendingInvitationBoxId"`
+}
+
 func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, email string) (int, error) {
 	docRef := u.FireStoreClient.Collection(invitationType).Doc(invitationBoxId)
 	docSnap, err := docRef.Get(context.Background())
@@ -162,13 +131,12 @@ func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, em
 		if status.Code(err) == codes.NotFound {
 			return http.StatusNotFound, fmt.Errorf("%s with ID: %s not found", invitationType, invitationBoxId)
 		}
-
 		return http.StatusInternalServerError, fmt.Errorf("error retrieving %s document: %v", invitationType, err)
 	}
 
 	switch invitationType {
 	case "receivingInvitationBoxes":
-		var invitationBox models.ReceivingInvitation
+		var invitationBox models.ReceivingInvitationBox
 
 		err = docSnap.DataTo(&invitationBox)
 
@@ -185,7 +153,7 @@ func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, em
 		}
 
 		if len(updatedFriendRequests) == len(invitationBox.FriendRequests) {
-			return http.StatusNotFound, fmt.Errorf("no friend request found with email: %s", email)
+			return http.StatusNotFound, fmt.Errorf("(reiceiving) no friend request found with email: %s", email)
 		}
 
 		invitationBox.FriendRequests = updatedFriendRequests
@@ -194,10 +162,9 @@ func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, em
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to update sending invitation: %v", err)
 		}
-
 		return http.StatusOK, nil
 	case "sendingInvitationBoxes":
-		var invitationBox models.SendingInvitation
+		var invitationBox models.SendingInvitationBox
 
 		err = docSnap.DataTo(&invitationBox)
 
@@ -214,7 +181,7 @@ func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, em
 		}
 
 		if len(updatedFriendRequests) == len(invitationBox.FriendRequests) {
-			return http.StatusNotFound, fmt.Errorf("no friend request found with email: %s", email)
+			return http.StatusNotFound, fmt.Errorf("(sending) no friend request found with email: %s", email)
 		}
 
 		invitationBox.FriendRequests = updatedFriendRequests
@@ -223,7 +190,6 @@ func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, em
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to update %s: %v", invitationType, err)
 		}
-
 		return http.StatusOK, nil
 	default:
 		return http.StatusBadRequest, fmt.Errorf("invalid invitation type: %s", invitationType)
@@ -235,9 +201,8 @@ func (u *UserServices) AddFriend(ownerEmail, newFriendId string) (int, error) {
 	docSnap, err := userRef.Documents(context.Background()).Next()
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return http.StatusNotFound, fmt.Errorf("User with email: %s not found", ownerEmail)
+			return http.StatusNotFound, fmt.Errorf("user with email: %s not found", ownerEmail)
 		}
-
 		return http.StatusInternalServerError, fmt.Errorf("error retrieving user by email: %v", err)
 	}
 
@@ -250,7 +215,7 @@ func (u *UserServices) AddFriend(ownerEmail, newFriendId string) (int, error) {
 
 	for _, friend := range user.Friends {
 		if friend == newFriendId {
-			return http.StatusConflict, fmt.Errorf("Friend with id: %s already exists", newFriendId)
+			return http.StatusConflict, fmt.Errorf("friend with id: %s already exists", newFriendId)
 		}
 	}
 
@@ -260,113 +225,187 @@ func (u *UserServices) AddFriend(ownerEmail, newFriendId string) (int, error) {
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to update user: %v", err)
 	}
-
 	return http.StatusOK, nil
 }
 
-func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (int, error) {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var finalStatus int
-	var finalErr error
+func (u *UserServices) DeleteFriendRequestFromUser(boxType, invitationBoxId, fromUserEmail, toUserEmail string) (int, error) {
+	switch boxType {
+	case "sendingInvitationBoxes":
+		docRef := u.FireStoreClient.Collection(boxType).Doc(invitationBoxId)
+		docSnap, err := docRef.Get(context.Background())
 
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-
-		sendingInvitationBoxId, status, err := u.FindSubIdInDoc("sendingInvitationBoxId", fromUserEmail)
-		fmt.Println(sendingInvitationBoxId)
 		if err != nil {
-			mu.Lock()
-			finalStatus = status
-			finalErr = err
-			mu.Unlock()
-
-			return
+			return http.StatusInternalServerError, fmt.Errorf("error retrieving sending document: %v", err)
 		}
 
-		status, err = u.DeleteMakingFriendReq("sendingInvitationBoxes", sendingInvitationBoxId, fromUserEmail)
-		if err != nil {
-			mu.Lock()
-			finalStatus = status
-			finalErr = err
-			mu.Unlock()
-
-			return
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		receivingInvitationBoxId, status, err := u.FindSubIdInDoc("receivingInvitationBoxId", toUserEmail)
-		if err != nil {
-			mu.Lock()
-			finalStatus = status
-			finalErr = err
-			mu.Unlock()
-
-			return
+		if !docSnap.Exists() {
+			return http.StatusNotFound, fmt.Errorf("sending document does not exist")
 		}
 
-		status, err = u.DeleteMakingFriendReq("receivingInvitationBoxes", receivingInvitationBoxId, toUserEmail)
-		if err != nil {
-			mu.Lock()
-			finalStatus = status
-			finalErr = err
-			mu.Unlock()
-		}
-	}()
+		var invitations models.SendingInvitationBox
 
-	go func() {
-		defer wg.Done()
-
-		fromUserId, _, err := u.SearchUserIdByEmail(fromUserEmail)
-		if err != nil {
-			mu.Lock()
-			finalStatus = http.StatusInternalServerError
-			finalErr = err
-			mu.Unlock()
-
-			return
+		if err := docSnap.DataTo(&invitations); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(from user) error mapping document data to %s box struct: %v", boxType, err)
 		}
 
-		status, err := u.AddFriend(toUserEmail, fromUserId.UserId)
-		if err != nil {
-			mu.Lock()
-			finalStatus = status
-			finalErr = err
-			mu.Unlock()
-		}
-	}()
+		var newInvitations []models.FriendRequest
 
-	go func() {
-		defer wg.Done()
-
-		toUserId, _, err := u.SearchUserIdByEmail(toUserEmail)
-		if err != nil {
-			mu.Lock()
-			finalStatus = http.StatusInternalServerError
-			finalErr = err
-			mu.Unlock()
-			return
+		for _, v := range invitations.FriendRequests {
+			if v.ToUserEmail != toUserEmail {
+				newInvitations = append(newInvitations, v)
+			}
 		}
 
-		status, err := u.AddFriend(fromUserEmail, toUserId.UserId)
-		if err != nil {
-			mu.Lock()
-			finalStatus = status
-			finalErr = err
-			mu.Unlock()
+		if len(newInvitations) == len(invitations.FriendRequests) {
+			return http.StatusInternalServerError, fmt.Errorf("(from user) FROM length should not be equal")
 		}
-	}()
 
-	wg.Wait()
+		_, err = docRef.Update(context.Background(), []firestore.Update{
+			{
+				Path:  "friendRequests",
+				Value: newInvitations,
+			},
+		})
 
-	if finalErr != nil {
-		return finalStatus, finalErr
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(from user) error updating sending invitation box: %v", err)
+		}
+
+		return http.StatusOK, nil
+	case "receivingInvitationBoxes":
+		docRef := u.FireStoreClient.Collection(boxType).Doc(invitationBoxId)
+		docSnap, err := docRef.Get(context.Background())
+
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("error retrieving receiving document: %v", err)
+		}
+
+		if !docSnap.Exists() {
+			return http.StatusNotFound, fmt.Errorf("receiving document does not exist")
+		}
+
+		var invitations models.ReceivingInvitationBox
+
+		if err := docSnap.DataTo(&invitations); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(from user) error mapping document data to %s box struct: %v", boxType, err)
+		}
+
+		var newInvitations []models.FriendRequest
+
+		for _, v := range invitations.FriendRequests {
+			if v.FromUserInfor.FromUserEmail != toUserEmail {
+				newInvitations = append(newInvitations, v)
+			}
+		}
+
+		if len(newInvitations) == len(invitations.FriendRequests) {
+			return http.StatusInternalServerError, fmt.Errorf("(to user) FROM length should not be equal")
+		}
+
+		_, err = docRef.Update(context.Background(), []firestore.Update{
+			{
+				Path:  "friendRequests",
+				Value: newInvitations,
+			},
+		})
+
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(from user) error updating sending invitation box: %v", err)
+		}
+		return http.StatusOK, nil
+	default:
+		return http.StatusBadRequest, fmt.Errorf("(from user) invalid box type: %s", boxType)
 	}
+}
 
-	return http.StatusOK, nil
+func (u *UserServices) DeleteFriendRequestToUser(boxType, toUserEmail, fromUserEmail string) (int, error) {
+	switch boxType {
+	case "sendingInvitationBoxes":
+		subIds, _, _ := u.GetSubIdsByEmail(toUserEmail)
+		docRef := u.FireStoreClient.Collection(boxType).Doc(subIds.SendingInvitationBoxId)
+		docSnap, err := docRef.Get(context.Background())
+
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("error retrieving sending document: %v", err)
+		}
+
+		if !docSnap.Exists() {
+			return http.StatusNotFound, fmt.Errorf("sending document does not exist")
+		}
+
+		var invitations models.SendingInvitationBox
+
+		if err := docSnap.DataTo(&invitations); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(to user) error mapping document data to %s box struct: %v", boxType, err)
+		}
+
+		var newInvitations []models.FriendRequest
+
+		for _, v := range invitations.FriendRequests {
+			if v.ToUserEmail != fromUserEmail {
+				newInvitations = append(newInvitations, v)
+			}
+		}
+
+		if len(newInvitations) == len(invitations.FriendRequests) {
+			return http.StatusInternalServerError, fmt.Errorf("(from user) TO length should not be equal")
+		}
+
+		_, err = docRef.Update(context.Background(), []firestore.Update{
+			{
+				Path:  "friendRequests",
+				Value: newInvitations,
+			},
+		})
+
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(to user) error updating sending invitation box: %v", err)
+		}
+
+		return http.StatusOK, nil
+	case "receivingInvitationBoxes":
+		subIds, _, _ := u.GetSubIdsByEmail(toUserEmail)
+		docRef := u.FireStoreClient.Collection(boxType).Doc(subIds.ReceivingInvitationBoxId)
+		docSnap, err := docRef.Get(context.Background())
+
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("error retrieving receiving document: %v", err)
+		}
+
+		if !docSnap.Exists() {
+			return http.StatusNotFound, fmt.Errorf("receiving document does not exist")
+		}
+
+		var invitations models.ReceivingInvitationBox
+
+		if err := docSnap.DataTo(&invitations); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(to user) error mapping document data to %s box struct: %v", boxType, err)
+		}
+
+		var newInvitations []models.FriendRequest
+
+		for _, v := range invitations.FriendRequests {
+			if v.FromUserInfor.FromUserEmail != fromUserEmail {
+				newInvitations = append(newInvitations, v)
+			}
+		}
+
+		if len(newInvitations) == len(invitations.FriendRequests) {
+			return http.StatusInternalServerError, fmt.Errorf("(to user) TO length should not be equal")
+		}
+
+		_, err = docRef.Update(context.Background(), []firestore.Update{
+			{
+				Path:  "friendRequests",
+				Value: newInvitations,
+			},
+		})
+
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("(to user) error updating sending invitation box: %v", err)
+		}
+		return http.StatusOK, nil
+	default:
+		return http.StatusBadRequest, fmt.Errorf("invalid box type: %s", boxType)
+	}
 }

@@ -24,7 +24,7 @@ func NewUserServices(client *firestore.Client) *UserServices {
 }
 
 type SearchUserReponse struct {
-	UserId string `json:"user_id"`
+	UserId string `json:"userId"`
 }
 
 func (u *UserServices) SearchUserIdByEmail(email string) (SearchUserReponse, int, error) {
@@ -40,10 +40,8 @@ func (u *UserServices) SearchUserIdByEmail(email string) (SearchUserReponse, int
 			if err == iterator.Done {
 				break
 			}
-
 			return SearchUserReponse{}, http.StatusInternalServerError, fmt.Errorf("error getting document: %v", err)
 		}
-
 		return SearchUserReponse{UserId: doc.Ref.ID}, http.StatusOK, nil
 	}
 
@@ -58,35 +56,32 @@ func (u *UserServices) CheckUserIfExistByEmail(email string) (bool, int, error) 
 		if err == iterator.Done {
 			return false, http.StatusNotFound, nil
 		}
-
 		return false, http.StatusInternalServerError, fmt.Errorf("error checking user: %v", err)
 	}
-
 	return true, http.StatusOK, nil
 }
 
-func (u *UserServices) GetUserByEmail(email string) (models.User, int, error) {
+func (u *UserServices) GetUserByEmail(email string) (models.User, string, int, error) {
 	docRef := u.FireStoreClient.Collection("users").Where("email", "==", email).Documents(context.Background())
 
 	for {
 		doc, err := docRef.Next()
 		// Check if there is any document
 		if err == iterator.Done {
-			return models.User{}, http.StatusNotFound, fmt.Errorf("user with email %s not found", email)
+			return models.User{}, "", http.StatusNotFound, fmt.Errorf("user with email %s not found", email)
 		}
 		// If having error in process gets document
 		if err != nil {
-			return models.User{}, http.StatusInternalServerError, fmt.Errorf("error fetching user: %v", err)
+			return models.User{}, "", http.StatusInternalServerError, fmt.Errorf("error fetching user: %v", err)
 		}
 
 		var user models.User
 
 		err = doc.DataTo(&user)
 		if err != nil {
-			return models.User{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to user: %v", err)
+			return models.User{}, "", http.StatusInternalServerError, fmt.Errorf("error mapping document data to user: %v", err)
 		}
-
-		return user, http.StatusOK, nil
+		return user, doc.Ref.ID, http.StatusOK, nil
 	}
 }
 
@@ -107,46 +102,59 @@ func (u *UserServices) GetUserById(userId string) (interface{}, int, error) {
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("error mapping document data to user struct: %v", err)
 	}
-
 	return user, http.StatusOK, nil
 }
 
-func (u *UserServices) GetSendingInvitationBox(invitationBoxId string) (models.SendingInvitation, int, error) {
+func (u *UserServices) GetUserIdByEmail(userEmail string) (string, int, error) {
+	docRef := u.FireStoreClient.Collection("users").Where("email", "==", userEmail).Documents(context.Background())
+
+	userDoc, err := docRef.Next()
+	if err != nil {
+		if err == iterator.Done {
+			return "", 404, fmt.Errorf("user with email %s not found", userEmail)
+		}
+		return "", 500, fmt.Errorf("error querying Firestore: %v", err)
+	}
+	return userDoc.Ref.ID, http.StatusOK, nil
+}
+
+func (u *UserServices) GetSendingInvitationBox(invitationBoxId string) (models.SendingInvitationBox, int, error) {
+	if invitationBoxId == "" {
+		return models.SendingInvitationBox{}, http.StatusNotFound, fmt.Errorf("user have not sending invitation box id")
+	}
+
 	docRef := u.FireStoreClient.Collection("sendingInvitationBoxes").Doc(invitationBoxId)
 	docSnap, err := docRef.Get(context.Background())
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return models.SendingInvitation{}, http.StatusNotFound, fmt.Errorf("not found")
+			return models.SendingInvitationBox{}, http.StatusNotFound, fmt.Errorf("not found")
 		}
-
-		return models.SendingInvitation{}, http.StatusInternalServerError, fmt.Errorf("error retrieving: %v", err)
+		return models.SendingInvitationBox{}, http.StatusInternalServerError, fmt.Errorf("error retrieving: %v", err)
 	}
 
-	var sendingInvitation models.SendingInvitation
+	var sendingInvitation models.SendingInvitationBox
+
 	if err := docSnap.DataTo(&sendingInvitation); err != nil {
-		return models.SendingInvitation{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to SendingInvitation struct: %v", err)
+		return models.SendingInvitationBox{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to SendingInvitation struct: %v", err)
 	}
-
 	return sendingInvitation, http.StatusOK, nil
 }
 
-func (u *UserServices) GetReceivingInvitationBox(invitationBoxId string) (models.ReceivingInvitation, int, error) {
+func (u *UserServices) GetReceivingInvitationBox(invitationBoxId string) (models.ReceivingInvitationBox, int, error) {
 	docRef := u.FireStoreClient.Collection("receivingInvitationBoxes").Doc(invitationBoxId)
 	docSnap, err := docRef.Get(context.Background())
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return models.ReceivingInvitation{}, http.StatusNotFound, fmt.Errorf("not found")
+			return models.ReceivingInvitationBox{}, http.StatusNotFound, fmt.Errorf("not found")
 		}
-
-		return models.ReceivingInvitation{}, http.StatusInternalServerError, fmt.Errorf("error retrieving: %v", err)
+		return models.ReceivingInvitationBox{}, http.StatusInternalServerError, fmt.Errorf("error retrieving: %v", err)
 	}
 
-	var receivingingInvitation models.ReceivingInvitation
+	var receivingingInvitation models.ReceivingInvitationBox
 	if err := docSnap.DataTo(&receivingingInvitation); err != nil {
-		return models.ReceivingInvitation{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to SendingInvitation struct: %v", err)
+		return models.ReceivingInvitationBox{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to SendingInvitation struct: %v", err)
 	}
-
 	return receivingingInvitation, http.StatusOK, nil
 }
