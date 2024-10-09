@@ -8,7 +8,7 @@ import (
 )
 
 func (u *UserServices) AddMessageBoxForBothUser(
-	firstUserInfor, secondUserInfor models.InforUser) (int, error) {
+	firstUserInfor, secondUserInfor models.InforUser) (string, int, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var finalMessageBoxId string
@@ -33,7 +33,7 @@ func (u *UserServices) AddMessageBoxForBothUser(
 	wg.Wait()
 
 	if finalErr != nil {
-		return finalStatus, fmt.Errorf("%v", finalErr)
+		return "", finalStatus, fmt.Errorf("%v", finalErr)
 	}
 
 	wg.Add(2)
@@ -63,8 +63,8 @@ func (u *UserServices) AddMessageBoxForBothUser(
 	wg.Wait()
 
 	if finalErr != nil {
-		return finalStatus, fmt.Errorf("%v", finalErr)
+		return "", finalStatus, fmt.Errorf("%v", finalErr)
 	}
 
-	return http.StatusOK, nil
+	return finalMessageBoxId, http.StatusOK, nil
 }

@@ -13,6 +13,16 @@ type ClientOnMasterRoom struct {
 	UserName                 string `json:"userName"`
 }
 
+type MasterRoom struct {
+	ClientOnMasterRoom *ClientOnMasterRoom `json:"clientOnMasterRoom"`
+}
+
+func NewMasterRoom(client *ClientOnMasterRoom) *MasterRoom {
+	return &MasterRoom{
+		ClientOnMasterRoom: client,
+	}
+}
+
 func (c *ClientOnMasterRoom) WriteAcceptNotification() {
 	defer func() {
 		c.Conn.Close()

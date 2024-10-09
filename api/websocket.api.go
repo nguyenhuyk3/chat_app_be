@@ -43,15 +43,15 @@ func (w *WebsocketApi) JoinMasterRoom(c *gin.Context) {
 
 	userId := c.Query("user_id")
 
-	client := &websocketv2.ClientOnMasterRoom{
+	clientOnMasterRoom := &websocketv2.ClientOnMasterRoom{
 		Conn:                     conn,
 		AcceptFriendNotification: make(chan *models.Notification),
 		UserId:                   userId,
 	}
 
-	w.WebsocketServices.Hub.ClientGetInToMasterRoom <- client
+	w.WebsocketServices.Hub.ClientGetInToMasterRoom <- clientOnMasterRoom
 
-	go client.WriteAcceptNotification()
+	go clientOnMasterRoom.WriteAcceptNotification()
 }
 
 type AcceptFriendReq struct {
@@ -89,10 +89,15 @@ func (w *WebsocketApi) AcceptFriend(c *gin.Context) {
 		Avtar:    "",
 	}
 
-	status, err = w.UserServices.AddMessageBoxForBothUser(firstUser, secondUser)
+	messageBoxId, status, err := w.UserServices.AddMessageBoxForBothUser(firstUser, secondUser)
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
+	}
+
+	w.WebsocketServices.Hub.MessageBoxes[messageBoxId] = &websocketv2.MessageBox{
+		MessageBoxId: messageBoxId,
+		Clients:      make(map[string]*websocketv2.Client),
 	}
 
 	c.JSON(status, gin.H{"message": "perform sucessfully"})
@@ -119,4 +124,28 @@ func (w *WebsocketApi) AcceptFriend(c *gin.Context) {
 
 	w.WebsocketServices.Hub.AcceptFriendNotification <- &notiSendFromUser
 	w.WebsocketServices.Hub.AcceptFriendNotification <- &notiSendToUser
+}
+
+func (w *WebsocketApi) JoinMessageBox(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	messageBoxId := c.Param("message_box_id")
+	userId := c.Query("user_id")
+
+	clientJoinMessageBox := &websocketv2.Client{
+		Conn:         conn,
+		UserServices: w.UserServices,
+		Message:      make(chan *models.Message),
+		MessageBoxId: messageBoxId,
+		UserId:       userId,
+	}
+
+	w.WebsocketServices.Hub.ClientGetInMessageBox <- clientJoinMessageBox
+
+	go clientJoinMessageBox.WriteMessage()
+	clientJoinMessageBox.ReadMessage(w.WebsocketServices.Hub)
 }

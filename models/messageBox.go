@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Notification struct {
 	FromUserInfor
 	ToUserId  string `json:"toUserId" firestore:"toUserId"`
@@ -7,18 +9,26 @@ type Notification struct {
 	CreatedAt string `json:"createdAt" firestore:"createdAt"`
 }
 
-type Payload struct {
-	Type    string `json:"type" firestore:"type"`
-	Content []byte `json:"content" firestore:"content"`
+// type Payload struct {
+// 	Type    string `json:"type" firestore:"type"`
+// 	Content []byte `json:"content" firestore:"content"`
+// }
+
+type CommingMessage struct {
+	MessageBoxId string `json:"messageBoxId" firestore:"messageBoxId"`
+	SenderId     string `json:"senderId" firestore:"senderId"`
+	// ReceiverId   string  `json:"receiverId" firestore:"receiverId"`
+	Content   string    `json:"content" firestore:"content"`
+	State     string    `json:"state" firestore:"state"`
+	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
 }
 
 type Message struct {
-	MessageBoxId string  `json:"messageBoxId" firestore:"messageBoxId"`
-	SenderId     string  `json:"senderId" firestore:"senderId"`
-	ReceiverId   string  `json:"receiverId" firestore:"receiverId"`
-	Payload      Payload `json:"payload" firestore:"payload"`
-	State        string  `json:"state" firestore:"state"`
-	CreatedAt    string  `json:"createdAt" firestore:"createdAt"`
+	SenderId string `json:"senderId" firestore:"senderId"`
+	// ReceiverId   string  `json:"receiverId" firestore:"receiverId"`
+	Content   string `json:"content" firestore:"content"`
+	State     string `json:"state" firestore:"state"`
+	CreatedAt string `json:"createdAt" firestore:"createdAt"`
 }
 
 type InforUser struct {
@@ -39,4 +49,9 @@ type MessageBox struct {
 	LastStateMessage LastState `json:"lastStateMessage" firestore:"lastStateMessage"`
 	Messages         []Message `json:"messages" firestore:"messages"`
 	CreatedAt        string    `json:"createdAt" firestore:"createdAt"`
+}
+
+type MessageBoxResponse struct {
+	MessageBoxId string `json:"messageBoxId"`
+	MessageBox
 }

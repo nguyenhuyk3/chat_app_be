@@ -28,6 +28,7 @@ func InitUserRouter(r *gin.Engine, userServices *user.UserServices) {
 	r.GET("/users/get_receiving_invitation_box", userApi.GetReceivingInvitationBox)
 	r.GET("/users/get_sending_invitation_box", userApi.GetSendingInvitationBox)
 	r.GET("/users/get_sub_ids", userApi.GetSubIds)
+	r.GET("/users/get_all_message_boxes", userApi.GetAllMessageBoxesByUserId)
 	r.POST("/users/make_friend", userApi.MakeFriend)
 	// r.POST("/users/accept_friend", userApi.AcceptFriend)
 	r.POST("/users/delete_friend_request_for_sending", userApi.DeleteFriendRequestForSending)

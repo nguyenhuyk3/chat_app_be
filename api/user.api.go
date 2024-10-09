@@ -266,3 +266,15 @@ func (u *UserApi) DeleteFriendRequestForReceiving(c *gin.Context) {
 		"message": "perform sucessfully",
 	})
 }
+
+func (u *UserApi) GetAllMessageBoxesByUserId(c *gin.Context) {
+	userId := c.Query("userId")
+
+	messageBoxes, status, err := u.UserServices.GetAllMessageBoxesByUserId(userId)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"messageBoxesReponse": messageBoxes})
+}

@@ -21,9 +21,10 @@ func main() {
 
 	hub := websocketv2.NewHub()
 	userServices := user.NewUserServices(client)
-	webSocketServices := websocketv2.NewWebsocketService(hub)
+	webSocketServices := websocketv2.NewWebsocketService(hub, client)
 
 	go hub.Run()
+	go webSocketServices.ProcessCommingMessages()
 
 	appRouter.InitWebsocketV2Router(router, webSocketServices, userServices)
 	appRouter.InitUserRouter(router, userServices)
