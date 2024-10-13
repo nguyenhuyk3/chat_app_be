@@ -5,6 +5,7 @@ import (
 )
 
 type Hub struct {
+	// When client join home then this place they will join first
 	MasterRooms              map[string]*MasterRoom
 	ClientGetInToMasterRoom  chan *ClientOnMasterRoom
 	ClientGetOutMasterRoom   chan *ClientOnMasterRoom
@@ -13,7 +14,8 @@ type Hub struct {
 	Broadcast                chan *models.CommingMessage
 	ClientGetInMessageBox    chan *Client
 	ClientGetOutMessageBox   chan *Client
-	MessageBoxes             map[string]*MessageBox
+	// This will manage all message box between two clients
+	MessageBoxes map[string]*MessageBox
 }
 
 func NewHub() *Hub {
@@ -62,6 +64,16 @@ func (h *Hub) Run() {
 
 			if _, ok := h.MessageBoxes[messageBoxId].Clients[userId]; !ok {
 				h.MessageBoxes[messageBoxId].Clients[userId] = clientGetInMessageBox
+			}
+		case clienGetOutMessageBox := <-h.ClientGetOutMessageBox:
+			messageBoxId := clienGetOutMessageBox.MessageBoxId
+			userId := clienGetOutMessageBox.UserId
+			// fmt.Println("Get out ")
+			// fmt.Println(messageBoxId)
+			// fmt.Println(userId)
+			if _, ok := h.MessageBoxes[messageBoxId].Clients[userId]; ok {
+				delete(h.MessageBoxes[messageBoxId].Clients, userId)
+				close(clienGetOutMessageBox.Message)
 			}
 		case message := <-h.Broadcast:
 			messageBoxId := message.MessageBoxId

@@ -25,6 +25,6 @@ func InitWebsocketV2Router(r *gin.Engine,
 	wsa := api.NewWebsocketApi(webSocketServices, userServices)
 
 	r.GET("/ws/join_master_room", wsa.JoinMasterRoom)
-	r.GET("ws/join_messsage_box/:message_box_id")
+	r.GET("/ws/join_message_box/:message_box_id", wsa.JoinMessageBox)
 	r.POST("/ws/accept_friend", wsa.AcceptFriend)
 }

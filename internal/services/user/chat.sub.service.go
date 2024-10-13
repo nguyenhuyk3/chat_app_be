@@ -14,9 +14,17 @@ func (u *UserServices) CreateMessageBox(firstInfor, secondInfor models.InforUser
 	messageBox := models.MessageBox{
 		FirstInforUser:  firstInfor,
 		SecondInforUser: secondInfor,
-		LastStateMessage: models.LastState{
+		LastStateMessageForFirstUser: models.LastState{
+			UserId:      firstInfor.Id,
 			LastMessage: "Từ giờ hai bạn có thể trò chuyện",
 			LastTime:    time.Now().Format("2006-01-02 15:04:05"),
+			LastStatus:  "chưa đọc",
+		},
+		LastStateMessageForSecondUser: models.LastState{
+			UserId:      secondInfor.Id,
+			LastMessage: "Từ giờ hai bạn có thể trò chuyện",
+			LastTime:    time.Now().Format("2006-01-02 15:04:05"),
+			LastStatus:  "chưa đọc",
 		},
 		Messages:  []models.Message{},
 		CreatedAt: time.Now().Format("2006-01-02 15:04:05"),

@@ -278,3 +278,47 @@ func (u *UserApi) GetAllMessageBoxesByUserId(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"messageBoxesReponse": messageBoxes})
 }
+
+func (u *UserApi) GetMessageBoxById(c *gin.Context) {
+	messageBoxId := c.Query("message_box_id")
+
+	messageBox, status, err := u.UserServices.GetMessageBoxById(messageBoxId)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err})
+	}
+
+	c.JSON(status, gin.H{"messageBox": messageBox})
+}
+
+type UpdateInformationReq struct {
+	UserId     string `json:"userId"`
+	FullName   string `json:"fullName"`
+	Genre      string `json:"genre"`
+	DayOfBirth string `json:"dayOfBirth"`
+}
+
+func (u *UserApi) UpdateInformation(c *gin.Context) {
+	var req UpdateInformationReq
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		return
+	}
+
+	newInformation := models.Information{
+		FullName:   req.FullName,
+		Genre:      req.Genre,
+		DayOfBirth: req.DayOfBirth,
+	}
+
+	status, err := u.UserServices.ChangeInfomationAtRoot(req.UserId, newInformation)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err})
+	}
+
+	status, err = u.UserServices.ChangeInformationAtMessageBoxes(req.UserId, newInformation)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err})
+	}
+
+	c.JSON(status, gin.H{"message": "perform successfully"})
+}

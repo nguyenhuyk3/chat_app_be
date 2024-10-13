@@ -250,3 +250,32 @@ func (u *UserServices) GetAllMessageBoxesByUserId(userId string) (interface{}, i
 
 	return messageBoxeReponses, http.StatusOK, nil
 }
+
+func (u *UserServices) GetAllMessageBoxesNoIdByUserId(userId string) (interface{}, int, error) {
+	messageBoxIds, _, _ := u.GetMessageBoxesByUserId(userId)
+
+	var messageBoxes []models.MessageBox
+
+	for _, messageBoxId := range messageBoxIds {
+		docRef := u.FireStoreClient.Collection("messageBoxes").Doc(messageBoxId)
+		docSnap, err := docRef.Get(context.Background())
+
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return nil, http.StatusNotFound, fmt.Errorf("messageBox with ID %s not found", messageBoxId)
+			}
+			return nil, http.StatusInternalServerError, fmt.Errorf("error retrieving messageBox document: %v", err)
+		}
+
+		var messageBox models.MessageBox
+
+		err = docSnap.DataTo(&messageBox)
+		if err != nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("error occur when mapping document to messageBox: %v", err)
+		}
+
+		messageBoxes = append(messageBoxes, messageBox)
+	}
+
+	return messageBoxes, http.StatusOK, nil
+}

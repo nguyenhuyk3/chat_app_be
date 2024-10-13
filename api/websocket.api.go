@@ -147,5 +147,5 @@ func (w *WebsocketApi) JoinMessageBox(c *gin.Context) {
 	w.WebsocketServices.Hub.ClientGetInMessageBox <- clientJoinMessageBox
 
 	go clientJoinMessageBox.WriteMessage()
-	clientJoinMessageBox.ReadMessage(w.WebsocketServices.Hub)
+	go clientJoinMessageBox.ReadMessage(w.WebsocketServices.Hub)
 }

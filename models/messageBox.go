@@ -15,12 +15,12 @@ type Notification struct {
 // }
 
 type CommingMessage struct {
-	MessageBoxId string `json:"messageBoxId" firestore:"messageBoxId"`
-	SenderId     string `json:"senderId" firestore:"senderId"`
-	// ReceiverId   string  `json:"receiverId" firestore:"receiverId"`
-	Content   string    `json:"content" firestore:"content"`
-	State     string    `json:"state" firestore:"state"`
-	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
+	MessageBoxId string    `json:"messageBoxId" firestore:"messageBoxId"`
+	SenderId     string    `json:"senderId" firestore:"senderId"`
+	ReceiverId   string    `json:"receiverId" firestore:"receiverId"`
+	Content      string    `json:"content" firestore:"content"`
+	State        string    `json:"state" firestore:"state"`
+	CreatedAt    time.Time `json:"createdAt" firestore:"createdAt"`
 }
 
 type Message struct {
@@ -39,16 +39,19 @@ type InforUser struct {
 }
 
 type LastState struct {
+	UserId      string `json:"userId" fireStore:"userId"`
 	LastMessage string `json:"lastMessage" firestore:"lastMessage"`
 	LastTime    string `json:"lastTime" firestore:"lastTime"`
+	LastStatus  string `json:"lastStatus" firestore:"lastStatus"`
 }
 
 type MessageBox struct {
-	FirstInforUser   InforUser `json:"firstInforUser" firestore:"firstInforUser"`
-	SecondInforUser  InforUser `json:"secondInforUser" firestore:"secondInforUser"`
-	LastStateMessage LastState `json:"lastStateMessage" firestore:"lastStateMessage"`
-	Messages         []Message `json:"messages" firestore:"messages"`
-	CreatedAt        string    `json:"createdAt" firestore:"createdAt"`
+	FirstInforUser                InforUser `json:"firstInforUser" firestore:"firstInforUser"`
+	SecondInforUser               InforUser `json:"secondInforUser" firestore:"secondInforUser"`
+	LastStateMessageForFirstUser  LastState `json:"lastStateMessageForFirstUser" firestore:"lastStateMessageForFirstUser"`
+	LastStateMessageForSecondUser LastState `json:"lastStateMessageForSecondUser" firestore:"lastStateMessageForSecondUser"`
+	Messages                      []Message `json:"messages" firestore:"messages"`
+	CreatedAt                     string    `json:"createdAt" firestore:"createdAt"`
 }
 
 type MessageBoxResponse struct {

@@ -144,7 +144,6 @@ func (u *UserServices) GetSendingInvitationBox(invitationBoxId string) (models.S
 func (u *UserServices) GetReceivingInvitationBox(invitationBoxId string) (models.ReceivingInvitationBox, int, error) {
 	docRef := u.FireStoreClient.Collection("receivingInvitationBoxes").Doc(invitationBoxId)
 	docSnap, err := docRef.Get(context.Background())
-
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return models.ReceivingInvitationBox{}, http.StatusNotFound, fmt.Errorf("not found")
@@ -157,4 +156,16 @@ func (u *UserServices) GetReceivingInvitationBox(invitationBoxId string) (models
 		return models.ReceivingInvitationBox{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to SendingInvitation struct: %v", err)
 	}
 	return receivingingInvitation, http.StatusOK, nil
+}
+
+func (u *UserServices) GetMessageBoxById(messageBoxId string) (interface{}, int, error) {
+	docRef := u.FireStoreClient.Collection("messageBoxes").Doc(messageBoxId)
+	docSnap, err := docRef.Get(context.Background())
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, http.StatusNotFound, fmt.Errorf("messageBox with ID %s not found", messageBoxId)
+		}
+		return nil, http.StatusInternalServerError, fmt.Errorf("error retrieving user document: %v", err)
+	}
+	return docSnap.Data(), http.StatusOK, nil
 }

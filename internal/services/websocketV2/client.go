@@ -40,26 +40,33 @@ func (c *Client) WriteMessage() {
 
 func (c *Client) ReadMessage(hub *Hub) {
 	defer func() {
+		hub.ClientGetOutMessageBox <- c
 		c.Conn.Close()
 	}()
 
 	for {
 		_, content, err := c.Conn.ReadMessage()
 		if err != nil {
+			/*
+				websocket.CloseGoingAway: status code indicating that the connection is being closed for some reason
+					(e.g. the client or server is leaving).
+				websocket.CloseAbnormalClosure: status code indicating that the connection was closed abnormally.
+			*/
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Printf("error (ReadMessage): %v", err)
 			}
 			break
 		}
 
 		var incomingData struct {
 			SenderId     string `json:"senderId"`
+			ReceiverId   string `json:"receiverId"`
 			MessageBoxId string `json:"messageBoxId"`
 			Content      string `json:"content"`
 		}
 
 		if err := json.Unmarshal(content, &incomingData); err != nil {
-			log.Printf("error: %v", err)
+			log.Printf("error when reading message: %v", err)
 			continue
 		}
 
@@ -67,6 +74,7 @@ func (c *Client) ReadMessage(hub *Hub) {
 		commingMessage := &models.CommingMessage{
 			MessageBoxId: incomingData.MessageBoxId,
 			SenderId:     incomingData.SenderId,
+			ReceiverId:   incomingData.ReceiverId,
 			Content:      incomingData.Content,
 			State:        "Chưa đọc",
 			CreatedAt:    time.Now(),

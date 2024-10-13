@@ -2,11 +2,13 @@ package websocketv2
 
 import (
 	"be_chat_app/models"
+	"context"
 	"log"
 	"sort"
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"google.golang.org/api/iterator"
 )
 
 type WebsocketServices struct {
@@ -18,6 +20,24 @@ func NewWebsocketService(h *Hub, fireStoreClient *firestore.Client) *WebsocketSe
 	return &WebsocketServices{
 		Hub:             h,
 		FireStoreClient: fireStoreClient,
+	}
+}
+
+func (w *WebsocketServices) FetchAllMessageBoxes() {
+	iter := w.FireStoreClient.Collection("messageBoxes").Documents(context.Background())
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Fatalf("failed to iterate: %v", err)
+		}
+
+		w.Hub.MessageBoxes[doc.Ref.ID] = &MessageBox{
+			MessageBoxId: doc.Ref.ID,
+			Clients:      make(map[string]*Client),
+		}
 	}
 }
 
@@ -39,7 +59,6 @@ func (w *WebsocketServices) ProcessCommingMessages() {
 				if err != nil {
 					log.Fatalf("error when saving batch: %v", err)
 				}
-
 				commingMessageBatch = []models.CommingMessage{}
 			}
 		case <-ticker.C:
@@ -48,7 +67,6 @@ func (w *WebsocketServices) ProcessCommingMessages() {
 				if err != nil {
 					log.Fatalf("error when saving batch: %v", err)
 				}
-
 				commingMessageBatch = []models.CommingMessage{}
 			}
 		}

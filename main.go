@@ -25,6 +25,7 @@ func main() {
 
 	go hub.Run()
 	go webSocketServices.ProcessCommingMessages()
+	go webSocketServices.FetchAllMessageBoxes()
 
 	appRouter.InitWebsocketV2Router(router, webSocketServices, userServices)
 	appRouter.InitUserRouter(router, userServices)
