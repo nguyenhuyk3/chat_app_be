@@ -30,7 +30,6 @@ func (u *UserApi) SearchUserIdByEmail(c *gin.Context) {
 		})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"response": user,
 	})
@@ -141,7 +140,6 @@ func (u *UserApi) GetUserByEmail(c *gin.Context) {
 		})
 		return
 	}
-
 	c.JSON(status, gin.H{
 		"user": user,
 	})
@@ -165,7 +163,6 @@ func (u *UserApi) AcceptFriend(c *gin.Context) {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "perform sucessfully"})
 }
 
@@ -177,7 +174,6 @@ func (u *UserApi) GetReceivingInvitationBox(c *gin.Context) {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"makeFriendRequests": makeFriendReq})
 }
 
@@ -189,7 +185,6 @@ func (u *UserApi) GetSendingInvitationBox(c *gin.Context) {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"makeFriendRequests": makeFriendReq})
 }
 
@@ -197,7 +192,6 @@ func (u *UserApi) GetSubIds(c *gin.Context) {
 	email := c.Query("email")
 
 	subIds, status, err := u.UserServices.GetSubIdsByEmail(email)
-
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
@@ -219,7 +213,6 @@ type DeleteFriendReq struct {
 
 func (u *UserApi) DeleteFriendRequestForSending(c *gin.Context) {
 	var req DeleteFriendReq
-
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
 		return
@@ -235,7 +228,6 @@ func (u *UserApi) DeleteFriendRequestForSending(c *gin.Context) {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "perform sucessfully",
 	})
@@ -243,7 +235,6 @@ func (u *UserApi) DeleteFriendRequestForSending(c *gin.Context) {
 
 func (u *UserApi) DeleteFriendRequestForReceiving(c *gin.Context) {
 	var req DeleteFriendReq
-
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
 
@@ -258,10 +249,8 @@ func (u *UserApi) DeleteFriendRequestForReceiving(c *gin.Context) {
 		req.FromUserEmail, req.ToUserEmail)
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
-
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "perform sucessfully",
 	})
@@ -275,7 +264,6 @@ func (u *UserApi) GetAllMessageBoxesByUserId(c *gin.Context) {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"messageBoxesReponse": messageBoxes})
 }
 
@@ -286,7 +274,6 @@ func (u *UserApi) GetMessageBoxById(c *gin.Context) {
 	if err != nil {
 		c.JSON(status, gin.H{"error": err})
 	}
-
 	c.JSON(status, gin.H{"messageBox": messageBox})
 }
 
@@ -319,6 +306,25 @@ func (u *UserApi) UpdateInformation(c *gin.Context) {
 	if err != nil {
 		c.JSON(status, gin.H{"error": err})
 	}
+	c.JSON(status, gin.H{"message": "perform successfully"})
+}
 
+type ReadUnreadedMessagesReq struct {
+	UserId       string `json:"userId"`
+	MessageBoxId string `json:"messageBoxId"`
+}
+
+func (u *UserApi) ReadUnreadedMessages(c *gin.Context) {
+	var req ReadUnreadedMessagesReq
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		return
+	}
+
+	status, err := u.UserServices.ReadUnreadedMessages(req.MessageBoxId, req.UserId)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
 	c.JSON(status, gin.H{"message": "perform successfully"})
 }

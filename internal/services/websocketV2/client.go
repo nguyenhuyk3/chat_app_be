@@ -16,6 +16,7 @@ type Client struct {
 	Message      chan *models.Message
 	MessageBoxId string `json:"messageBoxId"`
 	UserId       string `json:"userId"`
+	FullName     string `json:"fullName"`
 }
 
 type MessageBox struct {
@@ -33,7 +34,6 @@ func (c *Client) WriteMessage() {
 		if !ok {
 			return
 		}
-
 		c.Conn.WriteJSON(message)
 	}
 }
@@ -60,6 +60,7 @@ func (c *Client) ReadMessage(hub *Hub) {
 
 		var incomingData struct {
 			SenderId     string `json:"senderId"`
+			Token        string `json:"token"`
 			ReceiverId   string `json:"receiverId"`
 			MessageBoxId string `json:"messageBoxId"`
 			Content      string `json:"content"`
@@ -74,9 +75,10 @@ func (c *Client) ReadMessage(hub *Hub) {
 		commingMessage := &models.CommingMessage{
 			MessageBoxId: incomingData.MessageBoxId,
 			SenderId:     incomingData.SenderId,
+			TokenDevice:  incomingData.Token,
 			ReceiverId:   incomingData.ReceiverId,
 			Content:      incomingData.Content,
-			State:        "Chưa đọc",
+			State:        "chưa đọc",
 			CreatedAt:    time.Now(),
 		}
 

@@ -19,30 +19,30 @@ func (u *UserServices) AddFriendReqToBox(
 	makeFriendReq.CreatedAt = time.Now().Format("2006-01-02 15:04:05")
 
 	if friendRequestBoxId == "" {
-		invitationId, status, err := u.CreateNewInvitationDoc(collectionName, makeFriendReq)
+		invitationId, status, err := u.createNewInvitationDoc(collectionName, makeFriendReq)
 		if err != nil {
 			return status, fmt.Errorf("%v", err)
 		}
 
-		return u.UpdateUserInvitationBox(userId, collectionName, invitationId)
+		return u.updateUserInvitationBox(userId, collectionName, invitationId)
 	}
 
 	docRef := u.FireStoreClient.Collection(collectionName).Doc(friendRequestBoxId)
 	docSnap, err := docRef.Get(context.Background())
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			invitationId, status, err := u.CreateNewInvitationDocHavingDocRef(docRef, collectionName, userId, makeFriendReq)
+			invitationId, status, err := u.createNewInvitationDocHavingDocRef(docRef, collectionName, userId, makeFriendReq)
 			if err != nil {
 				return status, fmt.Errorf("%v", err)
 			}
 
-			return u.UpdateUserInvitationBox(userId, collectionName, invitationId)
+			return u.updateUserInvitationBox(userId, collectionName, invitationId)
 		}
 
 		return http.StatusNotFound, fmt.Errorf("failed to retrieve document: %v", err)
 	}
 
-	return u.UpdateExistingInvitation(docRef, docSnap, collectionName, makeFriendReq)
+	return u.updateExistingInvitation(docRef, docSnap, collectionName, makeFriendReq)
 }
 
 // fromUserEmail is a sender who send invitation not person who perform add-friend action on UI
@@ -57,7 +57,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (string, 
 	go func() {
 		defer wg.Done()
 
-		sendingInvitationBoxId, status, err := u.FindSubIdInDoc("sendingInvitationBoxId", fromUserEmail)
+		sendingInvitationBoxId, status, err := u.findSubIdInDoc("sendingInvitationBoxId", fromUserEmail)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
@@ -66,7 +66,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (string, 
 			return
 		}
 
-		status, err = u.DeleteMakingFriendReq("sendingInvitationBoxes", sendingInvitationBoxId, fromUserEmail)
+		status, err = u.deleteMakingFriendReq("sendingInvitationBoxes", sendingInvitationBoxId, fromUserEmail)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
@@ -78,7 +78,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (string, 
 	go func() {
 		defer wg.Done()
 
-		receivingInvitationBoxId, status, err := u.FindSubIdInDoc("receivingInvitationBoxId", toUserEmail)
+		receivingInvitationBoxId, status, err := u.findSubIdInDoc("receivingInvitationBoxId", toUserEmail)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
@@ -87,7 +87,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (string, 
 			return
 		}
 
-		status, err = u.DeleteMakingFriendReq("receivingInvitationBoxes", receivingInvitationBoxId, toUserEmail)
+		status, err = u.deleteMakingFriendReq("receivingInvitationBoxes", receivingInvitationBoxId, toUserEmail)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
@@ -109,7 +109,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (string, 
 
 		finalFromUserId = fromUserId.UserId
 
-		status, err := u.AddFriend(toUserEmail, fromUserId.UserId)
+		status, err := u.addFriend(toUserEmail, fromUserId.UserId)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
@@ -131,7 +131,7 @@ func (u *UserServices) AcceptFriend(toUserEmail, fromUserEmail string) (string, 
 
 		finalToUserId = toUserId.UserId
 
-		status, err := u.AddFriend(fromUserEmail, toUserId.UserId)
+		status, err := u.addFriend(fromUserEmail, toUserId.UserId)
 		if err != nil {
 			mu.Lock()
 			finalStatus = status
@@ -173,7 +173,7 @@ func (u *UserServices) DeleteFriendRequest(fromUserBoxType, toUserBoxType,
 	go func() {
 		defer wg.Done()
 
-		if _, err := u.DeleteFriendRequestFromUser(fromUserBoxType, invitationBoxIdOfOwner, fromUserEmail, toUserEmail); err != nil {
+		if _, err := u.deleteFriendRequestFromUser(fromUserBoxType, invitationBoxIdOfOwner, fromUserEmail, toUserEmail); err != nil {
 			errCh <- fmt.Errorf("%s friend from request error: %v", fromUserBoxType, err)
 		}
 	}()
@@ -181,7 +181,7 @@ func (u *UserServices) DeleteFriendRequest(fromUserBoxType, toUserBoxType,
 	go func() {
 		defer wg.Done()
 
-		if _, err := u.DeleteFriendRequestToUser(toUserBoxType, toUserEmail, fromUserEmail); err != nil {
+		if _, err := u.deleteFriendRequestToUser(toUserBoxType, toUserEmail, fromUserEmail); err != nil {
 			errCh <- fmt.Errorf("%s friend to request error: %v", toUserBoxType, err)
 		}
 	}()
@@ -190,11 +190,9 @@ func (u *UserServices) DeleteFriendRequest(fromUserBoxType, toUserBoxType,
 	close(errCh)
 
 	var finalErr error
-
 	for err := range errCh {
 		if err != nil {
 			finalErr = err
-
 			break
 		}
 	}
@@ -202,18 +200,15 @@ func (u *UserServices) DeleteFriendRequest(fromUserBoxType, toUserBoxType,
 	if finalErr != nil {
 		return http.StatusInternalServerError, finalErr
 	}
-
 	return http.StatusOK, nil
 }
 
 func (u *UserServices) GetMessageBoxesByUserId(userId string) ([]string, int, error) {
 	userDoc, _, _ := u.GetUserById(userId)
-
 	user, ok := userDoc.(models.User)
 	if !ok {
 		return nil, http.StatusInternalServerError, errors.New("failed to covert userDoc")
 	}
-
 	return user.MessageBoxes, http.StatusOK, nil
 }
 
@@ -247,7 +242,6 @@ func (u *UserServices) GetAllMessageBoxesByUserId(userId string) (interface{}, i
 
 		messageBoxeReponses = append(messageBoxeReponses, messageBoxReponse)
 	}
-
 	return messageBoxeReponses, http.StatusOK, nil
 }
 
@@ -273,9 +267,7 @@ func (u *UserServices) GetAllMessageBoxesNoIdByUserId(userId string) (interface{
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("error occur when mapping document to messageBox: %v", err)
 		}
-
 		messageBoxes = append(messageBoxes, messageBox)
 	}
-
 	return messageBoxes, http.StatusOK, nil
 }

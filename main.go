@@ -2,6 +2,7 @@ package main
 
 import (
 	"be_chat_app/cmd"
+	"be_chat_app/internal/services/notification"
 	"be_chat_app/internal/services/user"
 	websocketv2 "be_chat_app/internal/services/websocketV2"
 	appRouter "be_chat_app/router"
@@ -11,7 +12,7 @@ import (
 )
 
 func main() {
-	_, client, err := cmd.InitFirebase()
+	_, fireStoreClient, messagingClient, err := cmd.InitFirebase()
 	if err != nil {
 		log.Fatalf("Failed to initialize Firebase: %v\n", err)
 	}
@@ -19,9 +20,10 @@ func main() {
 
 	router := gin.Default()
 
-	hub := websocketv2.NewHub()
-	userServices := user.NewUserServices(client)
-	webSocketServices := websocketv2.NewWebsocketService(hub, client)
+	hub := websocketv2.NewHub(messagingClient)
+	userServices := user.NewUserServices(fireStoreClient)
+	webSocketServices := websocketv2.NewWebsocketService(hub, fireStoreClient)
+	notificationServices := notification.NewNotificatioinServices(fireStoreClient, messagingClient)
 
 	go hub.Run()
 	go webSocketServices.ProcessCommingMessages()
@@ -29,6 +31,7 @@ func main() {
 
 	appRouter.InitWebsocketV2Router(router, webSocketServices, userServices)
 	appRouter.InitUserRouter(router, userServices)
+	appRouter.InitNotificationRouter(router, notificationServices)
 
 	router.Run(":8080")
 }

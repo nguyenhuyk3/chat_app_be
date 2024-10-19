@@ -9,6 +9,7 @@ import (
 type ClientOnMasterRoom struct {
 	Conn                     *websocket.Conn
 	AcceptFriendNotification chan *models.Notification
+	DeviceToken              string `json:"deviceToken"`
 	UserId                   string `json:"userId"`
 	UserName                 string `json:"userName"`
 }

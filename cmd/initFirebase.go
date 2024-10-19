@@ -1,36 +1,44 @@
 package cmd
 
 import (
-	"be_chat_app/internal/firebase"
+	firebaseServices "be_chat_app/internal/firebase"
+	"context"
 	"fmt"
 	"log"
 
 	"cloud.google.com/go/firestore"
-	firebaseApp "firebase.google.com/go"
+	firebase "firebase.google.com/go"
+	"firebase.google.com/go/messaging"
 )
 
 var firestoreClient *firestore.Client
 
-// InitFirebaseClient initializes Firebase app and Firestore client
-func InitFirebase() (*firebaseApp.App, *firestore.Client, error) {
-	firebaseConfig := &firebase.FirebaseConfig{
+func InitFirebase() (*firebase.App, *firestore.Client, *messaging.Client, error) {
+	firebaseConfig := &firebaseServices.FirebaseConfig{
 		CredentialsFile: "./chat-app-flutter-e4dda-firebase-adminsdk-qkgt3-4086323c29.json",
 		ProjectId:       "chat-app-flutter-e4dda",
 	}
 
-	app, err := firebase.InitializeFirebaseApp(firebaseConfig)
+	firebaseApp, err := firebaseServices.InitializeFirebaseApp(firebaseConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error initializing Firestore client: %w", err)
+		return nil, nil, nil, fmt.Errorf("error initializing Firestore client: %w", err)
 	}
 
-	client, err := firebase.InitializeFirestoreClient(app)
+	firebaseClient, err := firebaseServices.InitializeFirestoreClient(firebaseApp)
 	if err != nil {
 		log.Fatalf("error getting Firestore client: %v", err)
 	}
 
-	firestoreClient = client
+	messagingClient, err := firebaseApp.Messaging(context.Background())
+	if err != nil {
+		// Close Firestore client if Messaging client initialization fails
+		firestoreClient.Close()
+		return nil, nil, nil, err
+	}
 
-	return app, client, nil
+	firestoreClient = firebaseClient
+
+	return firebaseApp, firestoreClient, messagingClient, nil
 }
 
 func CloseFirestoreClient() {

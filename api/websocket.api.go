@@ -135,6 +135,7 @@ func (w *WebsocketApi) JoinMessageBox(c *gin.Context) {
 
 	messageBoxId := c.Param("message_box_id")
 	userId := c.Query("user_id")
+	fullName, _, _ := w.UserServices.GetFullNameById(userId)
 
 	clientJoinMessageBox := &websocketv2.Client{
 		Conn:         conn,
@@ -142,6 +143,7 @@ func (w *WebsocketApi) JoinMessageBox(c *gin.Context) {
 		Message:      make(chan *models.Message),
 		MessageBoxId: messageBoxId,
 		UserId:       userId,
+		FullName:     fullName,
 	}
 
 	w.WebsocketServices.Hub.ClientGetInMessageBox <- clientJoinMessageBox

@@ -2,6 +2,7 @@ package firebase
 
 import (
 	"context"
+	"fmt"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -22,9 +23,8 @@ func InitializeFirebaseApp(config *FirebaseConfig) (*firebase.App, error) {
 	}
 	app, err := firebase.NewApp(context.Background(), conf, opt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%v", err)
 	}
-
 	return app, nil
 }
 
@@ -32,8 +32,7 @@ func InitializeFirebaseApp(config *FirebaseConfig) (*firebase.App, error) {
 func InitializeFirestoreClient(app *firebase.App) (*firestore.Client, error) {
 	client, err := app.Firestore(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%v", err)
 	}
-
 	return client, nil
 }

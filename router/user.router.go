@@ -9,8 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var UserServices *user.UserServices
-
 func InitUserRouter(r *gin.Engine, userServices *user.UserServices) {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -35,4 +33,5 @@ func InitUserRouter(r *gin.Engine, userServices *user.UserServices) {
 	r.POST("/users/delete_friend_request_for_sending", userApi.DeleteFriendRequestForSending)
 	r.POST("/users/delete_friend_request_for_receiving", userApi.DeleteFriendRequestForReceiving)
 	r.POST("/users/update_information", userApi.UpdateInformation)
+	r.POST("/users/read_unreaded_messages", userApi.ReadUnreadedMessages)
 }

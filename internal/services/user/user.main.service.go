@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
@@ -51,7 +52,6 @@ func (u *UserServices) SearchUserIdByEmail(email string) (SearchUserReponse, int
 func (u *UserServices) CheckUserIfExistByEmail(email string) (bool, int, error) {
 	iter := u.FireStoreClient.Collection("users").Where("email", "==", email).Documents(context.Background())
 	_, err := iter.Next()
-
 	if err != nil {
 		if err == iterator.Done {
 			return false, http.StatusNotFound, nil
@@ -88,7 +88,6 @@ func (u *UserServices) GetUserByEmail(email string) (models.User, string, int, e
 func (u *UserServices) GetUserById(userId string) (interface{}, int, error) {
 	docRef := u.FireStoreClient.Collection("users").Doc(userId)
 	docSnap, err := docRef.Get(context.Background())
-
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, http.StatusNotFound, fmt.Errorf("user with ID %s not found", userId)
@@ -125,7 +124,6 @@ func (u *UserServices) GetSendingInvitationBox(invitationBoxId string) (models.S
 
 	docRef := u.FireStoreClient.Collection("sendingInvitationBoxes").Doc(invitationBoxId)
 	docSnap, err := docRef.Get(context.Background())
-
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return models.SendingInvitationBox{}, http.StatusNotFound, fmt.Errorf("not found")
@@ -168,4 +166,99 @@ func (u *UserServices) GetMessageBoxById(messageBoxId string) (interface{}, int,
 		return nil, http.StatusInternalServerError, fmt.Errorf("error retrieving user document: %v", err)
 	}
 	return docSnap.Data(), http.StatusOK, nil
+}
+
+func (u *UserServices) ChangeInfomationAtRoot(userId string, newInformation models.Information) (int, error) {
+	docRef := u.FireStoreClient.Collection("users").Doc(userId)
+
+	_, err := docRef.Update(context.Background(), []firestore.Update{
+		{Path: "information", Value: newInformation},
+	})
+
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to update user information: %v", err)
+	}
+	return http.StatusOK, nil
+}
+
+func (u *UserServices) ChangeInformationAtMessageBoxes(userId string, information models.Information) (int, error) {
+	messageBoxesInterface, _, _ := u.GetAllMessageBoxesByUserId(userId)
+	messageBoxes, ok := messageBoxesInterface.([]models.MessageBoxResponse)
+	if !ok {
+		return http.StatusInternalServerError, fmt.Errorf("cannot assert messageBoxResponse from returned data:")
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var finalStatus int
+	var finalErr error
+
+	for _, messageBox := range messageBoxes {
+		wg.Add(1)
+
+		var newInforUser models.InforUser
+		var isFirst bool
+
+		if messageBox.FirstInforUser.Id == userId {
+			newInforUser = models.InforUser{
+				Id:       messageBox.FirstInforUser.Id,
+				Email:    messageBox.FirstInforUser.Email,
+				FullName: information.FullName,
+				Avtar:    "",
+			}
+			isFirst = true
+		} else {
+			newInforUser = models.InforUser{
+				Id:       messageBox.SecondInforUser.Id,
+				Email:    messageBox.SecondInforUser.Email,
+				FullName: information.FullName,
+				Avtar:    "",
+			}
+			isFirst = false
+		}
+
+		go func(box models.MessageBoxResponse, user models.InforUser, first bool) {
+			defer wg.Done()
+
+			var path string
+
+			if first {
+				path = "firstInforUser"
+			} else {
+				path = "secondInforUser"
+			}
+
+			status, err := u.updateInformationAtMessageBox(box.MessageBoxId, path, newInforUser)
+			if err != nil {
+				mu.Lock()
+				finalStatus = status
+				finalErr = err
+				mu.Unlock()
+			}
+		}(messageBox, newInforUser, isFirst)
+	}
+
+	wg.Wait()
+
+	if finalErr != nil {
+		return finalStatus, finalErr
+	}
+	return http.StatusOK, nil
+}
+
+func (u *UserServices) GetFullNameById(userId string) (string, int, error) {
+	docRef := u.FireStoreClient.Collection("users").Doc(userId)
+	docSnap, err := docRef.Get(context.Background())
+	if err != nil {
+		return "", http.StatusInternalServerError, fmt.Errorf("failed to get document: %v", err)
+	}
+	if info, ok := docSnap.Data()["information"].(map[string]interface{}); ok {
+		if fullName, ok := info["fullName"].(string); ok {
+			return fullName, http.StatusOK, nil
+		} else {
+			return "", http.StatusNotFound, fmt.Errorf("fullName field not found or not a string")
+		}
+	} else {
+		return "", http.StatusNotFound, fmt.Errorf("information field not found or not a map")
+	}
 }

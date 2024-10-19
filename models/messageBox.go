@@ -17,6 +17,7 @@ type Notification struct {
 type CommingMessage struct {
 	MessageBoxId string    `json:"messageBoxId" firestore:"messageBoxId"`
 	SenderId     string    `json:"senderId" firestore:"senderId"`
+	TokenDevice  string    `json:"tokenDevice" firestore:"tokenDevice"`
 	ReceiverId   string    `json:"receiverId" firestore:"receiverId"`
 	Content      string    `json:"content" firestore:"content"`
 	State        string    `json:"state" firestore:"state"`
@@ -57,4 +58,10 @@ type MessageBox struct {
 type MessageBoxResponse struct {
 	MessageBoxId string `json:"messageBoxId"`
 	MessageBox
+}
+
+type ReadedNotification struct {
+	MessageBoxId string `json:"messageBoxId"`
+	UserId       string `json:"userId"`
+	Readed       bool   `json:"readed"`
 }

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (u *UserServices) BuildNewInvitation(collectionName string, makeFriendReq models.FriendRequest) interface{} {
+func (u *UserServices) buildNewInvitation(collectionName string, makeFriendReq models.FriendRequest) interface{} {
 	if collectionName == "sendingInvitations" {
 		return models.SendingInvitationBox{
 			// OwnerId:        userId,
@@ -24,9 +24,9 @@ func (u *UserServices) BuildNewInvitation(collectionName string, makeFriendReq m
 	}
 }
 
-func (u *UserServices) CreateNewInvitationDoc(collectionName string, makeFriendReq models.FriendRequest) (string, int, error) {
+func (u *UserServices) createNewInvitationDoc(collectionName string, makeFriendReq models.FriendRequest) (string, int, error) {
 	// Build the new invitation
-	invitation := u.BuildNewInvitation(collectionName, makeFriendReq)
+	invitation := u.buildNewInvitation(collectionName, makeFriendReq)
 
 	// Add the new invitation to Firestore with an auto-generated ID
 	docRef, _, err := u.FireStoreClient.Collection(collectionName).Add(context.Background(), invitation)
@@ -36,8 +36,8 @@ func (u *UserServices) CreateNewInvitationDoc(collectionName string, makeFriendR
 	return docRef.ID, http.StatusOK, nil
 }
 
-func (u *UserServices) CreateNewInvitationDocHavingDocRef(docRef *firestore.DocumentRef, collectionName, userId string, makeFriendReq models.FriendRequest) (string, int, error) {
-	invitation := u.BuildNewInvitation(collectionName, makeFriendReq)
+func (u *UserServices) createNewInvitationDocHavingDocRef(docRef *firestore.DocumentRef, collectionName, userId string, makeFriendReq models.FriendRequest) (string, int, error) {
+	invitation := u.buildNewInvitation(collectionName, makeFriendReq)
 
 	_, err := docRef.Set(context.Background(), invitation)
 	if err != nil {
@@ -46,7 +46,7 @@ func (u *UserServices) CreateNewInvitationDocHavingDocRef(docRef *firestore.Docu
 	return docRef.ID, http.StatusOK, nil
 }
 
-func (u *UserServices) UpdateExistingInvitation(docRef *firestore.DocumentRef, docSnap *firestore.DocumentSnapshot, collectionName string, makeFriendReq models.FriendRequest) (int, error) {
+func (u *UserServices) updateExistingInvitation(docRef *firestore.DocumentRef, docSnap *firestore.DocumentSnapshot, collectionName string, makeFriendReq models.FriendRequest) (int, error) {
 	var invitation interface{}
 
 	if collectionName == "sendingInvitations" {
@@ -76,7 +76,7 @@ func (u *UserServices) UpdateExistingInvitation(docRef *firestore.DocumentRef, d
 	return http.StatusOK, nil
 }
 
-func (u *UserServices) UpdateUserInvitationBox(userId, collectionName, invitationBoxId string) (int, error) {
+func (u *UserServices) updateUserInvitationBox(userId, collectionName, invitationBoxId string) (int, error) {
 	userDoc, status, err := u.GetUserById(userId)
 	if err != nil {
 		return status, fmt.Errorf("%v", err)
@@ -101,7 +101,7 @@ func (u *UserServices) UpdateUserInvitationBox(userId, collectionName, invitatio
 	return http.StatusOK, nil
 }
 
-func (u *UserServices) FindSubIdInDoc(subIdName, email string) (string, int, error) {
+func (u *UserServices) findSubIdInDoc(subIdName, email string) (string, int, error) {
 	user, _, status, err := u.GetUserByEmail(email)
 
 	if err != nil {
@@ -124,7 +124,7 @@ type SubIds struct {
 	SendingInvitationBoxId   string `json:"sendingInvitationBoxId"`
 }
 
-func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, email string) (int, error) {
+func (u *UserServices) deleteMakingFriendReq(invitationType, invitationBoxId, email string) (int, error) {
 	docRef := u.FireStoreClient.Collection(invitationType).Doc(invitationBoxId)
 	docSnap, err := docRef.Get(context.Background())
 	if err != nil {
@@ -196,7 +196,7 @@ func (u *UserServices) DeleteMakingFriendReq(invitationType, invitationBoxId, em
 	}
 }
 
-func (u *UserServices) AddFriend(ownerEmail, newFriendId string) (int, error) {
+func (u *UserServices) addFriend(ownerEmail, newFriendId string) (int, error) {
 	userRef := u.FireStoreClient.Collection("users").Where("email", "==", ownerEmail)
 	docSnap, err := userRef.Documents(context.Background()).Next()
 	if err != nil {
@@ -228,7 +228,7 @@ func (u *UserServices) AddFriend(ownerEmail, newFriendId string) (int, error) {
 	return http.StatusOK, nil
 }
 
-func (u *UserServices) DeleteFriendRequestFromUser(boxType, invitationBoxId, fromUserEmail, toUserEmail string) (int, error) {
+func (u *UserServices) deleteFriendRequestFromUser(boxType, invitationBoxId, fromUserEmail, toUserEmail string) (int, error) {
 	switch boxType {
 	case "sendingInvitationBoxes":
 		docRef := u.FireStoreClient.Collection(boxType).Doc(invitationBoxId)
@@ -318,7 +318,7 @@ func (u *UserServices) DeleteFriendRequestFromUser(boxType, invitationBoxId, fro
 	}
 }
 
-func (u *UserServices) DeleteFriendRequestToUser(boxType, toUserEmail, fromUserEmail string) (int, error) {
+func (u *UserServices) deleteFriendRequestToUser(boxType, toUserEmail, fromUserEmail string) (int, error) {
 	switch boxType {
 	case "sendingInvitationBoxes":
 		subIds, _, _ := u.GetSubIdsByEmail(toUserEmail)
