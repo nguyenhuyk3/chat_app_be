@@ -55,7 +55,7 @@ func (w *WebsocketServices) ProcessCommingMessages() {
 			})
 
 			if len(commingMessageBatch) >= 10 {
-				_, err := w.SaveBatchMessages(commingMessageBatch)
+				_, err := w.saveBatchMessages(commingMessageBatch)
 				if err != nil {
 					log.Fatalf("error when saving batch: %v", err)
 				}
@@ -63,7 +63,7 @@ func (w *WebsocketServices) ProcessCommingMessages() {
 			}
 		case <-ticker.C:
 			if len(commingMessageBatch) > 0 {
-				_, err := w.SaveBatchMessages(commingMessageBatch)
+				_, err := w.saveBatchMessages(commingMessageBatch)
 				if err != nil {
 					log.Fatalf("error when saving batch: %v", err)
 				}

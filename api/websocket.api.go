@@ -150,4 +150,5 @@ func (w *WebsocketApi) JoinMessageBox(c *gin.Context) {
 
 	go clientJoinMessageBox.WriteMessage()
 	go clientJoinMessageBox.ReadMessage(w.WebsocketServices.Hub)
+	// go clientJoinMessageBox.ReadFile(w.WebsocketServices.Hub)
 }

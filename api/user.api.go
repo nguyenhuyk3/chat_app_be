@@ -257,7 +257,7 @@ func (u *UserApi) DeleteFriendRequestForReceiving(c *gin.Context) {
 }
 
 func (u *UserApi) GetAllMessageBoxesByUserId(c *gin.Context) {
-	userId := c.Query("userId")
+	userId := c.Query("user_id")
 
 	messageBoxes, status, err := u.UserServices.GetAllMessageBoxesByUserId(userId)
 	if err != nil {
@@ -322,6 +322,27 @@ func (u *UserApi) ReadUnreadedMessages(c *gin.Context) {
 	}
 
 	status, err := u.UserServices.ReadUnreadedMessages(req.MessageBoxId, req.UserId)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+	c.JSON(status, gin.H{"message": "perform successfully"})
+}
+
+type UpdateMessageBySendedIdReq struct {
+	MessageBoxId string `json:"messageBoxId"`
+	SendedId     string `json:"sendedId"`
+	Content      string `json:"content"`
+}
+
+func (u *UserApi) UpdateMessageBySendedId(c *gin.Context) {
+	var req UpdateMessageBySendedIdReq
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		return
+	}
+
+	status, err := u.UserServices.UpdateMessageBySendedId(req.MessageBoxId, req.SendedId, req.Content)
 	if err != nil {
 		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
 		return

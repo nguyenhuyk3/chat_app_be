@@ -11,7 +11,7 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func (w *WebsocketServices) SaveBatchMessages(commingMessages []models.CommingMessage) (int, error) {
+func (w *WebsocketServices) saveBatchMessages(commingMessages []models.CommingMessage) (int, error) {
 	batch := w.FireStoreClient.BulkWriter(context.Background())
 
 	for _, commingMessage := range commingMessages {
@@ -39,7 +39,9 @@ func (w *WebsocketServices) SaveBatchMessages(commingMessages []models.CommingMe
 
 		newMessage := models.Message{
 			SenderId:  commingMessage.SenderId,
+			Type:      commingMessage.Type,
 			Content:   commingMessage.Content,
+			SendedId:  commingMessage.SendedId,
 			State:     stateForBoth,
 			CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
 		}

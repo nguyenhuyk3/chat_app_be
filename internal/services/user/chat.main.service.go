@@ -2,9 +2,15 @@ package user
 
 import (
 	"be_chat_app/models"
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
+
+	"cloud.google.com/go/firestore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (u *UserServices) AddMessageBoxForBothUser(
@@ -103,5 +109,55 @@ func (u *UserServices) ReadUnreadedMessages(messageBoxId, userId string) (int, e
 	if finalError != nil {
 		return finalStatus, fmt.Errorf("%v", finalError)
 	}
+	return http.StatusOK, nil
+}
+
+func (u *UserServices) UpdateMessageBySendedId(messageBoxId, sendedId, content string) (int, error) {
+	err := u.FireStoreClient.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+		docRef := u.FireStoreClient.Collection("messageBoxes").Doc(messageBoxId)
+		docSnap, err := tx.Get(docRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return fmt.Errorf("messageBoxes with ID: %s not found", messageBoxId)
+			}
+			return fmt.Errorf("error retrieving messageBoxes document: %v", err)
+		}
+
+		var messageBox models.MessageBox
+
+		err = docSnap.DataTo(&messageBox)
+		if err != nil {
+			return fmt.Errorf("error mapping document data to messageBox struct: %v", err)
+		}
+
+		var updated bool = false
+
+		for k := range messageBox.Messages {
+			if messageBox.Messages[k].SendedId == sendedId {
+				messageBox.Messages[k].Content = content
+				updated = true
+				break
+			}
+		}
+
+		if !updated {
+			return fmt.Errorf("no message found with sendedId: %s", sendedId)
+		}
+
+		return tx.Update(docRef, []firestore.Update{
+			{
+				Path:  "messages",
+				Value: messageBox.Messages,
+			},
+		})
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return http.StatusNotFound, err
+		}
+		return http.StatusInternalServerError, err
+	}
+
 	return http.StatusOK, nil
 }

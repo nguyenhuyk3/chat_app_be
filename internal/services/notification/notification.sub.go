@@ -4,7 +4,6 @@ import (
 	"be_chat_app/models"
 	"context"
 	"fmt"
-	"log"
 
 	"cloud.google.com/go/firestore"
 	"firebase.google.com/go/messaging"
@@ -47,16 +46,11 @@ func SendNotificationForCommingMessage(messagingClient *messaging.Client, messag
 		},
 		Token: messageNotification.Token,
 	}
-
-	fmt.Println(messageNotification.Token)
-
-	response, err := messagingClient.Send(context.Background(), message)
-
+	// fmt.Println(messageNotification.Token)
+	_, err := messagingClient.Send(context.Background(), message)
 	if err != nil {
 		return fmt.Errorf("having error when sending notification (SendNotificationForCommingMessage): %v", err)
 	}
-
-	log.Printf("send notification for token (%s) sucessfully: %s\n", response, message.Token)
-
+	// log.Printf("send notification for token (%s) sucessfully: %s\n", response, message.Token)
 	return nil
 }

@@ -139,7 +139,6 @@ func (u *UserServices) deleteMakingFriendReq(invitationType, invitationBoxId, em
 		var invitationBox models.ReceivingInvitationBox
 
 		err = docSnap.DataTo(&invitationBox)
-
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("error mapping document data to %s struct: %v", invitationType, err)
 		}

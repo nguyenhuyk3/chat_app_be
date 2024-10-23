@@ -32,6 +32,9 @@ func main() {
 	appRouter.InitWebsocketV2Router(router, webSocketServices, userServices)
 	appRouter.InitUserRouter(router, userServices)
 	appRouter.InitNotificationRouter(router, notificationServices)
+	appRouter.InitFileRouter(router)
+
+	router.Static("/assets", "./assets")
 
 	router.Run(":8080")
 }

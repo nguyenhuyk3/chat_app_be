@@ -19,7 +19,9 @@ type CommingMessage struct {
 	SenderId     string    `json:"senderId" firestore:"senderId"`
 	TokenDevice  string    `json:"tokenDevice" firestore:"tokenDevice"`
 	ReceiverId   string    `json:"receiverId" firestore:"receiverId"`
+	Type         string    `json:"type" firestore:"type"`
 	Content      string    `json:"content" firestore:"content"`
+	SendedId     string    `json:"sendedId" firestore:"sendedId"`
 	State        string    `json:"state" firestore:"state"`
 	CreatedAt    time.Time `json:"createdAt" firestore:"createdAt"`
 }
@@ -27,7 +29,9 @@ type CommingMessage struct {
 type Message struct {
 	SenderId string `json:"senderId" firestore:"senderId"`
 	// ReceiverId   string  `json:"receiverId" firestore:"receiverId"`
+	Type      string `json:"type" firestore:"type"`
 	Content   string `json:"content" firestore:"content"`
+	SendedId  string `json:"sendedId" firestore:"sendedId"`
 	State     string `json:"state" firestore:"state"`
 	CreatedAt string `json:"createdAt" firestore:"createdAt"`
 }
