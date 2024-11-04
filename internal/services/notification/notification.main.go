@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"firebase.google.com/go/messaging"
+	"google.golang.org/api/iterator"
 )
 
 type NotificationServices struct {
@@ -47,6 +48,22 @@ func (n *NotificationServices) SaveToken(userToken models.UserToken) (int, error
 		return http.StatusOK, nil
 	}
 	return http.StatusNotModified, nil
+}
+
+func (n *NotificationServices) DeleteToken(userId string) (int, error) {
+	docRef := n.FireStoreClient.Collection("tokenDevices").Where("userId", "==", userId).Documents(context.Background())
+	tokenDeviceDoc, err := docRef.Next()
+	if err != nil {
+		if err == iterator.Done {
+			return http.StatusNotFound, nil
+		}
+		return http.StatusInternalServerError, err
+	}
+	_, err = tokenDeviceDoc.Ref.Delete(context.Background())
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	return http.StatusOK, nil
 }
 
 func (n *NotificationServices) GetTokenByUserId(userId string) (string, int, error) {

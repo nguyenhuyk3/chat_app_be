@@ -96,7 +96,6 @@ func (u *UserServices) GetUserById(userId string) (interface{}, int, error) {
 	}
 
 	var user models.User
-
 	err = docSnap.DataTo(&user)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("error mapping document data to user struct: %v", err)
@@ -106,7 +105,6 @@ func (u *UserServices) GetUserById(userId string) (interface{}, int, error) {
 
 func (u *UserServices) GetUserIdByEmail(userEmail string) (string, int, error) {
 	docRef := u.FireStoreClient.Collection("users").Where("email", "==", userEmail).Documents(context.Background())
-
 	userDoc, err := docRef.Next()
 	if err != nil {
 		if err == iterator.Done {
@@ -168,7 +166,7 @@ func (u *UserServices) GetMessageBoxById(messageBoxId string) (interface{}, int,
 	return docSnap.Data(), http.StatusOK, nil
 }
 
-func (u *UserServices) ChangeInfomationAtRoot(userId string, newInformation models.Information) (int, error) {
+func (u *UserServices) ChangeInformationAtRoot(userId string, newInformation models.Information) (int, error) {
 	docRef := u.FireStoreClient.Collection("users").Doc(userId)
 
 	_, err := docRef.Update(context.Background(), []firestore.Update{
@@ -260,5 +258,133 @@ func (u *UserServices) GetFullNameById(userId string) (string, int, error) {
 		}
 	} else {
 		return "", http.StatusNotFound, fmt.Errorf("information field not found or not a map")
+	}
+}
+
+func (u *UserServices) GetFriendIdsById(userId string) []string {
+	docRef := u.FireStoreClient.Collection("users").Doc(userId)
+	docSnap, _ := docRef.Get(context.Background())
+
+	var user models.User
+	_ = docSnap.DataTo(&user)
+
+	return user.Friends
+}
+
+func (u *UserServices) GetFriendEmailsById(userId string) ([]string, int, error) {
+	friendIds := u.GetFriendIdsById(userId)
+	friendEmails := []string{}
+
+	for _, v := range friendIds {
+		userEmail := u.getUserEmailByUserId(v)
+		friendEmails = append(friendEmails, userEmail)
+	}
+	return friendEmails, http.StatusOK, nil
+}
+
+type InformationResponse struct {
+	Email    string `json:"email"`
+	FullName string `json:"fullName"`
+}
+
+func (u *UserServices) GetInformationByEmail(email string) (InformationResponse, int, error) {
+	docRef := u.FireStoreClient.Collection("users").Where("email", "==", email).Documents(context.Background())
+
+	for {
+		doc, err := docRef.Next()
+		if err == iterator.Done {
+			return InformationResponse{}, http.StatusNotFound, fmt.Errorf("user with email %s not found (GetInformationByUserId)", email)
+		}
+		if err != nil {
+			return InformationResponse{}, http.StatusInternalServerError, fmt.Errorf("error fetching user (GetInformationByUserId): %v", err)
+		}
+
+		var user models.User
+
+		err = doc.DataTo(&user)
+		if err != nil {
+			return InformationResponse{}, http.StatusInternalServerError, fmt.Errorf("error mapping document data to user: %v", err)
+		}
+		return InformationResponse{Email: email, FullName: user.Information.FullName}, http.StatusOK, nil
+	}
+}
+
+func (u *UserServices) GetEmailsFromInvitationBox(invitationBoxId, invitationType string) ([]string, int, error) {
+	var emails []string
+	var status int
+
+	switch invitationType {
+	case "receivingInvitationBoxes":
+		docRef := u.FireStoreClient.Collection(invitationType).Doc(invitationBoxId)
+		docSnap, err := docRef.Get(context.Background())
+		if err != nil {
+			return nil, 500, fmt.Errorf("failed to get document: %v", err) // HTTP 500 Internal Server Error
+		}
+
+		data := docSnap.Data()
+		friendRequestsRaw, exists := data["friendRequests"]
+
+		// If friendRequests is missing or null, return an empty list with a 200 status
+		if !exists || friendRequestsRaw == nil {
+			return emails, 200, nil
+		}
+
+		friendRequests, ok := friendRequestsRaw.([]interface{})
+		if !ok {
+			return nil, 400, fmt.Errorf("failed to parse friendRequests") // HTTP 400 Bad Request
+		}
+
+		for _, request := range friendRequests {
+			requestMap, ok := request.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			fromUserInfor, ok := requestMap["fromUserInfor"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			fromUserEmail, ok := fromUserInfor["fromUserEmail"].(string)
+			if ok {
+				emails = append(emails, fromUserEmail)
+			}
+		}
+		status = 200 // HTTP 200 OK
+		return emails, status, nil
+
+	case "sendingInvitationBoxes":
+		docRef := u.FireStoreClient.Collection(invitationType).Doc(invitationBoxId)
+		docSnap, err := docRef.Get(context.Background())
+		if err != nil {
+			return nil, 500, fmt.Errorf("failed to get document: %v", err) // HTTP 500 Internal Server Error
+		}
+
+		data := docSnap.Data()
+		friendRequestsRaw, exists := data["friendRequests"]
+
+		// If friendRequests is missing or null, return an empty list with a 200 status
+		if !exists || friendRequestsRaw == nil {
+			return emails, 200, nil
+		}
+
+		friendRequests, ok := friendRequestsRaw.([]interface{})
+		if !ok {
+			return nil, 400, fmt.Errorf("failed to parse friendRequests") // HTTP 400 Bad Request
+		}
+
+		for _, request := range friendRequests {
+			requestMap, ok := request.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			toUserEmail, ok := requestMap["toUserEmail"].(string)
+			if ok {
+				emails = append(emails, toUserEmail)
+			}
+		}
+		status = 200 // HTTP 200 OK
+		return emails, status, nil
+
+	default:
+		return nil, 400, fmt.Errorf("invalid invitation type: %s", invitationType) // HTTP 400 Bad Request
 	}
 }

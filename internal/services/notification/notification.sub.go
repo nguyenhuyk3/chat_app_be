@@ -37,7 +37,9 @@ type MessageNotification struct {
 	Body   string
 }
 
-func SendNotificationForCommingMessage(messagingClient *messaging.Client, messageNotification MessageNotification) error {
+func SendNotificationForCommingMessage(messagingClient *messaging.Client,
+	messageNotification MessageNotification,
+	messageBoxId, receiverId, token, userName string) error {
 	message := &messaging.Message{
 		Notification: &messaging.Notification{
 			Title:    messageNotification.Title,
@@ -45,6 +47,12 @@ func SendNotificationForCommingMessage(messagingClient *messaging.Client, messag
 			ImageURL: messageNotification.Avatar,
 		},
 		Token: messageNotification.Token,
+		Data: map[string]string{
+			"messageBoxId": messageBoxId,
+			"receiverId":   receiverId,
+			"token":        token,
+			"userName":     userName,
+		},
 	}
 	// fmt.Println(messageNotification.Token)
 	_, err := messagingClient.Send(context.Background(), message)

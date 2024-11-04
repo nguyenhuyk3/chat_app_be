@@ -45,15 +45,21 @@ func (w *WebsocketServices) saveBatchMessages(commingMessages []models.CommingMe
 			State:     stateForBoth,
 			CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
 		}
+
+		lastMessage := string(newMessage.Content)
+		if commingMessage.Type == "video" {
+			lastMessage = "Video"
+		}
+
 		messageBox.LastStateMessageForFirstUser = models.LastState{
 			UserId:      commingMessage.SenderId,
-			LastMessage: string(newMessage.Content),
+			LastMessage: lastMessage,
 			LastTime:    time.Now().Format("2006-01-02 15:04:05"),
 			LastStatus:  stateForSender,
 		}
 		messageBox.LastStateMessageForSecondUser = models.LastState{
 			UserId:      commingMessage.ReceiverId,
-			LastMessage: string(newMessage.Content),
+			LastMessage: lastMessage,
 			LastTime:    time.Now().Format("2006-01-02 15:04:05"),
 			LastStatus:  stateForReceiver,
 		}

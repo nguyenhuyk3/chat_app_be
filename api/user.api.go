@@ -297,16 +297,41 @@ func (u *UserApi) UpdateInformation(c *gin.Context) {
 		DayOfBirth: req.DayOfBirth,
 	}
 
-	status, err := u.UserServices.ChangeInfomationAtRoot(req.UserId, newInformation)
-	if err != nil {
-		c.JSON(status, gin.H{"error": err})
-	}
+	resultCh := make(chan struct {
+		status int
+		err    error
+	}, 2)
 
-	status, err = u.UserServices.ChangeInformationAtMessageBoxes(req.UserId, newInformation)
-	if err != nil {
-		c.JSON(status, gin.H{"error": err})
+	go func() {
+		status, err := u.UserServices.ChangeInformationAtRoot(req.UserId, newInformation)
+		resultCh <- struct {
+			status int
+			err    error
+		}{status: status, err: err}
+	}()
+	go func() {
+		status, err := u.UserServices.ChangeInformationAtMessageBoxes(req.UserId, newInformation)
+		resultCh <- struct {
+			status int
+			err    error
+		}{status: status, err: err}
+	}()
+
+	var errors []string
+	var finalStatus int = http.StatusOK
+
+	for i := 0; i < 2; i++ {
+		result := <-resultCh
+		if result.err != nil {
+			errors = append(errors, result.err.Error())
+			finalStatus = result.status
+		}
 	}
-	c.JSON(status, gin.H{"message": "perform successfully"})
+	if len(errors) > 0 {
+		c.JSON(finalStatus, gin.H{"errors": errors})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "perform successfully"})
 }
 
 type ReadUnreadedMessagesReq struct {
@@ -348,4 +373,45 @@ func (u *UserApi) UpdateMessageBySendedId(c *gin.Context) {
 		return
 	}
 	c.JSON(status, gin.H{"message": "perform successfully"})
+}
+
+func (u *UserApi) GetAllFriendEmailsById(c *gin.Context) {
+	userId := c.Query("user_id")
+	friendEmails, status, _ := u.UserServices.GetFriendEmailsById(userId)
+
+	c.JSON(status, gin.H{"friendEmails": friendEmails})
+}
+
+func (u *UserApi) GetInformationByEmail(c *gin.Context) {
+	email := c.Query("email")
+	information, status, err := u.UserServices.GetInformationByEmail(email)
+
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"information": information})
+}
+
+func (u *UserApi) GetEmailsFromInvitationBox(c *gin.Context) {
+	invitationBoxId := c.Query("invitation_box_id")
+	invitationBoxType := c.Query("invitation_box_type")
+
+	emails, status, err := u.UserServices.GetEmailsFromInvitationBox(invitationBoxId, invitationBoxType)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"emails": emails})
+}
+
+func (u *UserApi) GetFullNameById(c *gin.Context) {
+	userId := c.Query("user_id")
+	fullName, status, err := u.UserServices.GetFullNameById(userId)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"fullName": fullName})
 }

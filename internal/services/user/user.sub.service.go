@@ -9,17 +9,17 @@ import (
 	"cloud.google.com/go/firestore"
 )
 
-func (u *UserServices) changeInfomationAtRoot(userId string, newInformation models.Information) (int, error) {
-	docRef := u.FireStoreClient.Collection("users").Doc(userId)
-	_, err := docRef.Update(context.Background(), []firestore.Update{
-		{Path: "information", Value: newInformation},
-	})
+// func (u *UserServices) changeInfomationAtRoot(userId string, newInformation models.Information) (int, error) {
+// 	docRef := u.FireStoreClient.Collection("users").Doc(userId)
+// 	_, err := docRef.Update(context.Background(), []firestore.Update{
+// 		{Path: "information", Value: newInformation},
+// 	})
 
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to update user information: %v", err)
-	}
-	return http.StatusOK, nil
-}
+// 	if err != nil {
+// 		return http.StatusInternalServerError, fmt.Errorf("failed to update user information: %v", err)
+// 	}
+// 	return http.StatusOK, nil
+// }
 
 func (u *UserServices) updateInformationAtMessageBox(messageBoxId, path string, newInformation models.InforUser) (int, error) {
 	docRef := u.FireStoreClient.Collection("messageBoxes").Doc(messageBoxId)
@@ -31,4 +31,17 @@ func (u *UserServices) updateInformationAtMessageBox(messageBoxId, path string, 
 		return http.StatusInternalServerError, fmt.Errorf("failed to update user information (update information at message box): %v", err)
 	}
 	return http.StatusOK, nil
+}
+
+func (u *UserServices) getUserEmailByUserId(userId string) string {
+	docRef := u.FireStoreClient.Collection("users").Doc(userId)
+	docSnap, _ := docRef.Get(context.Background())
+
+	var user models.User
+
+	err := docSnap.DataTo(&user)
+	if err != nil {
+		return ""
+	}
+	return user.Email
 }

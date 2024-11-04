@@ -20,10 +20,10 @@ func main() {
 
 	router := gin.Default()
 
-	hub := websocketv2.NewHub(messagingClient)
 	userServices := user.NewUserServices(fireStoreClient)
-	webSocketServices := websocketv2.NewWebsocketService(hub, fireStoreClient)
 	notificationServices := notification.NewNotificatioinServices(fireStoreClient, messagingClient)
+	hub := websocketv2.NewHub(messagingClient, userServices, notificationServices)
+	webSocketServices := websocketv2.NewWebsocketService(hub, fireStoreClient)
 
 	go hub.Run()
 	go webSocketServices.ProcessCommingMessages()

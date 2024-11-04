@@ -21,6 +21,7 @@ func InitNotificationRouter(r *gin.Engine, notificationServices *notification.No
 
 	notificationApi := api.NewNotificationApi(notificationServices)
 
-	r.GET("notifications/get_token_by_user_id", notificationApi.GetTokenByUserId)
-	r.POST("notifications/save_token", notificationApi.SaveToken)
+	r.GET("/notifications/get_token_by_user_id", notificationApi.GetTokenByUserId)
+	r.POST("/notifications/save_token", notificationApi.SaveToken)
+	r.POST("/notifications/delete_token", notificationApi.DeleteToken)
 }

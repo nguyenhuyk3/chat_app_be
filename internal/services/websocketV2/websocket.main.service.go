@@ -3,7 +3,9 @@ package websocketv2
 import (
 	"be_chat_app/models"
 	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"sort"
 	"time"
 
@@ -71,4 +73,15 @@ func (w *WebsocketServices) ProcessCommingMessages() {
 			}
 		}
 	}
+}
+
+func (w *WebsocketServices) Logout(userId string) (int, error) {
+	masterRoom, ok := w.Hub.MasterRooms[userId]
+	if !ok {
+		return http.StatusNotFound, fmt.Errorf("user with %s not found", userId)
+	}
+
+	w.Hub.ClientGetOutMasterRoom <- masterRoom.ClientOnMasterRoom
+
+	return http.StatusOK, nil
 }

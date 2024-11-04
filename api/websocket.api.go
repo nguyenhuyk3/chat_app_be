@@ -42,16 +42,16 @@ func (w *WebsocketApi) JoinMasterRoom(c *gin.Context) {
 	}
 
 	userId := c.Query("user_id")
-
-	clientOnMasterRoom := &websocketv2.ClientOnMasterRoom{
-		Conn:                     conn,
-		AcceptFriendNotification: make(chan *models.Notification),
-		UserId:                   userId,
-	}
-
+	clientOnMasterRoom := websocketv2.NewClientOnMasterRoom(
+		conn,
+		userId,
+	)
 	w.WebsocketServices.Hub.ClientGetInToMasterRoom <- clientOnMasterRoom
 
 	go clientOnMasterRoom.WriteAcceptNotification()
+	go clientOnMasterRoom.WriteUserStatus()
+	go clientOnMasterRoom.WriteLastStateForMessageBoxOnMasterRoom()
+	go clientOnMasterRoom.ReadMessages(w.WebsocketServices.Hub)
 }
 
 type AcceptFriendReq struct {
@@ -136,19 +136,33 @@ func (w *WebsocketApi) JoinMessageBox(c *gin.Context) {
 	messageBoxId := c.Param("message_box_id")
 	userId := c.Query("user_id")
 	fullName, _, _ := w.UserServices.GetFullNameById(userId)
-
-	clientJoinMessageBox := &websocketv2.Client{
-		Conn:         conn,
-		UserServices: w.UserServices,
-		Message:      make(chan *models.Message),
-		MessageBoxId: messageBoxId,
-		UserId:       userId,
-		FullName:     fullName,
-	}
+	clientJoinMessageBox := websocketv2.NewClient(
+		conn,
+		w.UserServices,
+		messageBoxId, userId, fullName,
+	)
 
 	w.WebsocketServices.Hub.ClientGetInMessageBox <- clientJoinMessageBox
 
 	go clientJoinMessageBox.WriteMessage()
 	go clientJoinMessageBox.ReadMessage(w.WebsocketServices.Hub)
-	// go clientJoinMessageBox.ReadFile(w.WebsocketServices.Hub)
+}
+
+type LogoutReq struct {
+	UserId string `json:"userId"`
+}
+
+func (w *WebsocketApi) Logout(c *gin.Context) {
+	var req LogoutReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		return
+	}
+
+	status, err := w.WebsocketServices.Logout(req.UserId)
+	if err != nil {
+		c.JSON(status, gin.H{"error": fmt.Sprintf("%v", err)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "perform sucessfully"})
 }

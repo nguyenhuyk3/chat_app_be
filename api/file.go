@@ -23,7 +23,7 @@ func (f *FileApi) UploadFile(c *gin.Context) {
 
 	dst := filepath.Join("./assets/videos", file.Filename)
 	if err := c.SaveUploadedFile(file, dst); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upload file"})
 		return
 	}
 

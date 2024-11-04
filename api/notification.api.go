@@ -35,6 +35,26 @@ func (n *NotificationApi) SaveToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "perform sucessfully"})
 }
 
+type DeleteTokenReq struct {
+	UserId string `json:"userId"`
+}
+
+func (n *NotificationApi) DeleteToken(c *gin.Context) {
+	var req DeleteTokenReq
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		return
+	}
+	status, err := n.NotificationServices.DeleteToken(req.UserId)
+	if err != nil {
+		c.JSON(status, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "perform sucessfully"})
+}
+
 func (n *NotificationApi) GetTokenByUserId(c *gin.Context) {
 	userId := c.Query("user_id")
 	token, status, err := n.NotificationServices.GetTokenByUserId(userId)
