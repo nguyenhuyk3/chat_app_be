@@ -34,6 +34,7 @@ type MessageNotification struct {
 	Token  string
 	Avatar string
 	Title  string
+	Type   string
 	Body   string
 }
 
@@ -52,6 +53,7 @@ func SendNotificationForCommingMessage(messagingClient *messaging.Client,
 			"receiverId":   receiverId,
 			"token":        token,
 			"userName":     userName,
+			"type":         messageNotification.Type,
 		},
 	}
 	// fmt.Println(messageNotification.Token)

@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/pion/webrtc/v3"
+)
 
 type Notification struct {
 	FromUserInfor
@@ -15,25 +19,31 @@ type Notification struct {
 // }
 
 type CommingMessage struct {
-	MessageBoxId string    `json:"messageBoxId" firestore:"messageBoxId"`
-	SenderId     string    `json:"senderId" firestore:"senderId"`
-	TokenDevice  string    `json:"tokenDevice" firestore:"tokenDevice"`
-	ReceiverId   string    `json:"receiverId" firestore:"receiverId"`
-	Type         string    `json:"type" firestore:"type"`
-	Content      string    `json:"content" firestore:"content"`
-	SendedId     string    `json:"sendedId" firestore:"sendedId"`
-	State        string    `json:"state" firestore:"state"`
-	CreatedAt    time.Time `json:"createdAt" firestore:"createdAt"`
+	MessageBoxId string                     `json:"messageBoxId" firestore:"messageBoxId"`
+	SenderId     string                     `json:"senderId" firestore:"senderId"`
+	TokenDevice  string                     `json:"tokenDevice" firestore:"tokenDevice"`
+	ReceiverId   string                     `json:"receiverId" firestore:"receiverId"`
+	CallType     string                     `json:"callType,omitempty"`
+	Type         string                     `json:"type" firestore:"type"`
+	Content      string                     `json:"content" firestore:"content"`
+	Sdp          *webrtc.SessionDescription `json:"sdp,omitempty"`
+	Candidate    *webrtc.ICECandidateInit   `json:"candidate,omitempty"`
+	SendedId     string                     `json:"sendedId" firestore:"sendedId"`
+	State        string                     `json:"state" firestore:"state"`
+	CreatedAt    time.Time                  `json:"createdAt" firestore:"createdAt"`
 }
 
 type Message struct {
 	SenderId string `json:"senderId" firestore:"senderId"`
 	// ReceiverId   string  `json:"receiverId" firestore:"receiverId"`
-	Type      string `json:"type" firestore:"type"`
-	Content   string `json:"content" firestore:"content"`
-	SendedId  string `json:"sendedId" firestore:"sendedId"`
-	State     string `json:"state" firestore:"state"`
-	CreatedAt string `json:"createdAt" firestore:"createdAt"`
+	CallType  string                     `json:"callType,omitempty"`
+	Type      string                     `json:"type" firestore:"type"`
+	Content   string                     `json:"content,omitempty" firestore:"content,omitempty"`
+	Sdp       *webrtc.SessionDescription `json:"sdp,omitempty"`
+	Candidate *webrtc.ICECandidateInit   `json:"candidate,omitempty"`
+	SendedId  string                     `json:"sendedId,omitempty" firestore:"sendedId"`
+	State     string                     `json:"state,omitempty" firestore:"state"`
+	CreatedAt string                     `json:"createdAt,omitempty" firestore:"createdAt"`
 }
 
 type InforUser struct {

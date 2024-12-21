@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v3"
 )
 
 type Client struct {
@@ -17,6 +18,7 @@ type Client struct {
 	MessageBoxId string `json:"messageBoxId"`
 	UserId       string `json:"userId"`
 	FullName     string `json:"fullName"`
+	// StartTime    *time.Time
 }
 
 func NewClient(conn *websocket.Conn,
@@ -29,6 +31,7 @@ func NewClient(conn *websocket.Conn,
 		MessageBoxId: messageBoxId,
 		UserId:       userId,
 		FullName:     fullName,
+		// StartTime:    nil,
 	}
 }
 
@@ -51,21 +54,11 @@ func (c *Client) WriteMessage() {
 	}
 }
 
-func (c *Client) ReadMessage(hub *Hub) {
+func (c *Client) ReadMessage(h *Hub) {
 	defer func() {
-		hub.ClientGetOutMessageBox <- c
+		h.ClientGetOutMessageBox <- c
 		c.Conn.Close()
 	}()
-
-	var incomingData struct {
-		SenderId     string `json:"senderId"`
-		Token        string `json:"token"`
-		ReceiverId   string `json:"receiverId"`
-		MessageBoxId string `json:"messageBoxId"`
-		SendedId     string `json:"sendedId,omitempty"`
-		Type         string `json:"type"`
-		Content      string `json:"content"`
-	}
 
 	for {
 		_, content, err := c.Conn.ReadMessage()
@@ -74,6 +67,19 @@ func (c *Client) ReadMessage(hub *Hub) {
 				log.Printf("error (ReadMessage): %v", err)
 			}
 			break
+		}
+
+		var incomingData struct {
+			SenderId     string                     `json:"senderId"`
+			Token        string                     `json:"token"`
+			ReceiverId   string                     `json:"receiverId"`
+			MessageBoxId string                     `json:"messageBoxId"`
+			SendedId     string                     `json:"sendedId,omitempty"`
+			Type         string                     `json:"type"`
+			CallType     string                     `json:"callType,omitempty"`
+			Content      string                     `json:"content"`
+			Sdp          *webrtc.SessionDescription `json:"sdp,omitempty"`
+			Candidate    *webrtc.ICECandidateInit   `json:"candidate,omitempty"`
 		}
 
 		if err := json.Unmarshal(content, &incomingData); err != nil {
@@ -91,13 +97,62 @@ func (c *Client) ReadMessage(hub *Hub) {
 			SenderId:     incomingData.SenderId,
 			TokenDevice:  incomingData.Token,
 			ReceiverId:   incomingData.ReceiverId,
+			CallType:     incomingData.CallType,
 			Type:         incomingData.Type,
 			Content:      incomingData.Content,
+			Sdp:          incomingData.Sdp,
+			Candidate:    incomingData.Candidate,
 			SendedId:     sendedId,
 			State:        "chưa đọc",
 			CreatedAt:    time.Now(),
 		}
-		hub.BroadcastMessage <- commingMessage
-		hub.CommingMessage <- commingMessage
+
+		switch incomingData.Type {
+		case "video", "audio", "text", "completed-media-call", "missed-media-call", "declined-media-call":
+			h.BroadcastMessage <- commingMessage
+			h.CommingMessage <- commingMessage
+		case "offer", "answer", "ice-candidate":
+			// if incomingData.Type == "answer" {
+			// 	if client, ok := h.MessageBoxes[incomingData.MessageBoxId].Clients[incomingData.ReceiverId]; ok {
+			// 		if client.StartTime == nil {
+			// 			currentTime := time.Now()
+			// 			client.StartTime = &currentTime
+			// 			fmt.Println(currentTime)
+			// 		}
+			// 	}
+			// 	if client, ok := h.MessageBoxes[incomingData.MessageBoxId].Clients[incomingData.SenderId]; ok {
+			// 		if client.StartTime == nil {
+			// 			currentTime := time.Now()
+			// 			client.StartTime = &currentTime
+			// 			fmt.Println(currentTime)
+			// 		}
+			// 	}
+			// }
+			h.BroadcastMessage <- commingMessage
+		case "completed-media-call-signal", "missed-media-call-signal", "declined-media-call-signal":
+			// if client, ok := h.MessageBoxes[incomingData.MessageBoxId].Clients[incomingData.ReceiverId]; ok {
+			// 	if client.StartTime != nil {
+			// 		duration := time.Since(*client.StartTime)
+			// 		fmt.Println(*client.StartTime)
+			// 		fmt.Println(duration)
+			// 		fmt.Println(incomingData.ReceiverId)
+			// 		fmt.Println("=====================")
+			// 		client.StartTime = nil
+			// 	}
+			// }
+			// if client, ok := h.MessageBoxes[incomingData.MessageBoxId].Clients[incomingData.SenderId]; ok {
+			// 	if client.StartTime != nil {
+			// 		duration := time.Since(*client.StartTime)
+			// 		fmt.Println(*client.StartTime)
+			// 		fmt.Println(duration)
+			// 		fmt.Println(incomingData.SenderId)
+			// 		fmt.Println("=====================")
+			// 		client.StartTime = nil
+			// 	}
+			// }
+			h.BroadcastMessage <- commingMessage
+		case "toggle-action":
+			h.BroadcastMessage <- commingMessage
+		}
 	}
 }

@@ -4,10 +4,7 @@ import (
 	"be_chat_app/internal/services/notification"
 	"be_chat_app/models"
 	"fmt"
-	"log"
 	"time"
-
-	"github.com/pion/webrtc/v3"
 )
 
 func (h *Hub) broadcastUserStatus(userId string, isOnline bool) []string {
@@ -96,6 +93,7 @@ func (h *Hub) handleClientGetInMessageBox(client *Client) {
 					newMessage := &models.CommingMessage{
 						SenderId:     userId,
 						MessageBoxId: messageBoxId,
+						Type:         "join-message-box",
 						Content:      "anhiuemlove33333!@#@#@!!!****&(*&@(^&*()concak",
 						State:        "",
 					}
@@ -120,71 +118,213 @@ func (h *Hub) handleClientGetOutMessageBox(client *Client) {
 func (h *Hub) handleBroadcastMessage(message *models.CommingMessage) {
 	messageBoxId := message.MessageBoxId
 
-	if box, ok := h.MessageBoxes[messageBoxId]; ok {
-		newState := "chưa đọc"
-		if len(box.Clients) == 2 {
-			newState = "đã đọc"
-		}
-
-		newMessage := &models.Message{
-			SenderId:  message.SenderId,
-			Type:      message.Type,
-			Content:   message.Content,
-			SendedId:  message.SendedId,
-			State:     newState,
-			CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
-		}
-
-		lastMessageState := message.Content
-
-		if message.Type != "text" {
-			lastMessageState = "Video"
-		}
-
-		lastStateForMessageBoxOnMasterRoomForSender := &LastStateForMessageBoxOnMasterRoom{
-			IsLastStateStruct: true,
-			SenderId:          message.SenderId,
-			MessageBoxId:      messageBoxId,
-			LastMessage:       lastMessageState,
-			LastTime:          message.CreatedAt.Format("2006-01-02 15:04:05"),
-			LastStatus:        "đã đọc",
-		}
-		lastStateForMessageBoxOnMasterRoomForReiceiver := &LastStateForMessageBoxOnMasterRoom{
-			IsLastStateStruct: true,
-			SenderId:          message.SenderId,
-			MessageBoxId:      messageBoxId,
-			LastMessage:       lastMessageState,
-			LastTime:          message.CreatedAt.Format("2006-01-02 15:04:05"),
-			LastStatus:        newState,
-		}
-		receiverName, _, _ := h.UserServices.GetFullNameById(message.SenderId)
-
-		for _, client := range box.Clients {
-			if len(box.Clients) == 1 {
-				newNotification := notification.MessageNotification{
-					Token:  message.TokenDevice,
-					Avatar: "",
-					Title:  box.Clients[message.SenderId].FullName,
-					Body:   "1 tin nhắn mới",
-				}
-				go func() {
-					notification.SendNotificationForCommingMessage(h.MessagingClient, newNotification,
-						messageBoxId, message.ReceiverId, message.TokenDevice, receiverName)
-				}()
+	if message.Type == "video" || message.Type == "text" || message.Type == "audio" {
+		fmt.Println(message.Type)
+		if box, ok := h.MessageBoxes[messageBoxId]; ok {
+			newState := "chưa đọc"
+			if len(box.Clients) == 2 {
+				newState = "đã đọc"
 			}
-			var isFirst bool = true
-			if isFirst {
-				isFirst = false
-				fmt.Println(client.UserId)
-				fmt.Println(message.ReceiverId)
-				if clientOnMasterRoom, ok := h.MasterRooms[message.ReceiverId]; ok {
-					clientOnMasterRoom.ClientOnMasterRoom.LastStateForMessageBoxOnMasterRoom <- lastStateForMessageBoxOnMasterRoomForReiceiver
+
+			newMessage := &models.Message{
+				SenderId:  message.SenderId,
+				Type:      message.Type,
+				Content:   message.Content,
+				SendedId:  message.SendedId,
+				State:     newState,
+				CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
+			}
+			lastMessageState := message.Content
+
+			if message.Type == "video" {
+				lastMessageState = "Video anhiuemlove33333!@#@#@!!!****&(*&@(^&*()concak"
+			} else if message.Type == "audio" {
+				lastMessageState = "Audio anhiuemlove33333!@#@#@!!!****&(*&@(^&*()concak"
+			}
+
+			lastStateForMessageBoxOnMasterRoomForSender := &LastStateForMessageBoxOnMasterRoom{
+				IsLastStateStruct: true,
+				SenderId:          message.SenderId,
+				MessageBoxId:      messageBoxId,
+				LastMessage:       lastMessageState,
+				LastTime:          message.CreatedAt.Format("2006-01-02 15:04:05"),
+				LastStatus:        "đã đọc",
+			}
+			lastStateForMessageBoxOnMasterRoomForReiceiver := &LastStateForMessageBoxOnMasterRoom{
+				IsLastStateStruct: true,
+				SenderId:          message.SenderId,
+				MessageBoxId:      messageBoxId,
+				LastMessage:       lastMessageState,
+				LastTime:          message.CreatedAt.Format("2006-01-02 15:04:05"),
+				LastStatus:        newState,
+			}
+
+			for _, client := range box.Clients {
+				if len(box.Clients) == 1 {
+					receiverName, _, _ := h.UserServices.GetFullNameById(message.SenderId)
+					newNotification := notification.MessageNotification{
+						Token:  message.TokenDevice,
+						Avatar: "",
+						Title:  box.Clients[message.SenderId].FullName,
+						Body:   "1 tin nhắn mới",
+					}
+					go func() {
+						notification.SendNotificationForCommingMessage(h.MessagingClient, newNotification,
+							messageBoxId, message.ReceiverId, message.TokenDevice, receiverName)
+					}()
 				}
-				if clientOnMasterRoom, ok := h.MasterRooms[client.UserId]; ok {
-					clientOnMasterRoom.ClientOnMasterRoom.LastStateForMessageBoxOnMasterRoom <- lastStateForMessageBoxOnMasterRoomForSender
+				var isFirst bool = true
+				if isFirst {
+					isFirst = false
+					if clientOnMasterRoom, ok := h.MasterRooms[message.ReceiverId]; ok {
+						clientOnMasterRoom.ClientOnMasterRoom.LastStateForMessageBoxOnMasterRoom <- lastStateForMessageBoxOnMasterRoomForReiceiver
+					}
+					if clientOnMasterRoom, ok := h.MasterRooms[client.UserId]; ok {
+						clientOnMasterRoom.ClientOnMasterRoom.LastStateForMessageBoxOnMasterRoom <- lastStateForMessageBoxOnMasterRoomForSender
+					}
+				}
+				client.Message <- newMessage
+			}
+		}
+	} else if message.Type == "completed-media-call" || message.Type == "missed-media-call" || message.Type == "declined-media-call" {
+		if box, ok := h.MessageBoxes[messageBoxId]; ok {
+			state := "đã đọc"
+
+			if message.Type == "missed-media-call" && len(box.Clients) == 1 {
+				state = "chưa đọc"
+			}
+			newMessage := &models.Message{
+				SenderId:  message.SenderId,
+				Type:      message.Type,
+				Content:   message.Content,
+				State:     state,
+				CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
+			}
+
+			for _, client := range box.Clients {
+				client.Message <- newMessage
+			}
+		}
+	} else {
+		if message.Type == "declined-media-call-at-foreground" {
+			commingMessage := &models.CommingMessage{
+				MessageBoxId: message.MessageBoxId,
+				SenderId:     message.SenderId,
+				TokenDevice:  message.TokenDevice,
+				ReceiverId:   message.ReceiverId,
+				CallType:     message.CallType,
+				Type:         "declined-media-call",
+				Content:      message.Content,
+				Sdp:          message.Sdp,
+				Candidate:    message.Candidate,
+				SendedId:     message.SendedId,
+				State:        "chưa đọc",
+				CreatedAt:    time.Now(),
+			}
+			h.CommingMessage <- commingMessage
+
+			if box, ok := h.MessageBoxes[messageBoxId]; ok {
+				state := "đã đọc"
+				if len(box.Clients) == 1 {
+					state = "chưa đọc"
+				}
+				newMessageSignal := &models.Message{
+					SenderId:  message.SenderId,
+					Type:      "declined-media-call-signal",
+					Content:   message.Content,
+					State:     state,
+					CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
+				}
+				newMessage := &models.Message{
+					SenderId:  message.SenderId,
+					Type:      "declined-media-call",
+					Content:   message.Content,
+					State:     state,
+					CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
+				}
+				for _, client := range box.Clients {
+					client.Message <- newMessageSignal
+					client.Message <- newMessage
+					if len(box.Clients) == 1 {
+						lastMessageState := "Cuộc gọi đã bị từ chối"
+						lastStateForMessageBoxOnMasterRoomForSender := &LastStateForMessageBoxOnMasterRoom{
+							IsLastStateStruct: true,
+							SenderId:          message.SenderId,
+							MessageBoxId:      messageBoxId,
+							LastMessage:       lastMessageState,
+							LastTime:          message.CreatedAt.Format("2006-01-02 15:04:05"),
+							LastStatus:        "đã đọc",
+						}
+						lastStateForMessageBoxOnMasterRoomForReiceiver := &LastStateForMessageBoxOnMasterRoom{
+							IsLastStateStruct: true,
+							SenderId:          message.SenderId,
+							MessageBoxId:      messageBoxId,
+							LastMessage:       lastMessageState,
+							LastTime:          message.CreatedAt.Format("2006-01-02 15:04:05"),
+							LastStatus:        "chưa đọc",
+						}
+						var isFirst bool = true
+						if isFirst {
+							isFirst = false
+							if clientOnMasterRoom, ok := h.MasterRooms[message.ReceiverId]; ok {
+								clientOnMasterRoom.ClientOnMasterRoom.LastStateForMessageBoxOnMasterRoom <- lastStateForMessageBoxOnMasterRoomForReiceiver
+							}
+							if clientOnMasterRoom, ok := h.MasterRooms[client.UserId]; ok {
+								clientOnMasterRoom.ClientOnMasterRoom.LastStateForMessageBoxOnMasterRoom <- lastStateForMessageBoxOnMasterRoomForSender
+							}
+						}
+					}
 				}
 			}
-			client.Message <- newMessage
+		} else {
+			if box, ok := h.MessageBoxes[messageBoxId]; ok {
+				for _, client := range box.Clients {
+					if client.UserId != message.SenderId {
+						newMessage := &models.Message{
+							SenderId:  message.SenderId,
+							CallType:  message.CallType,
+							Type:      message.Type,
+							Content:   message.Content,
+							Sdp:       message.Sdp,
+							Candidate: message.Candidate}
+
+						client.Message <- newMessage
+						break
+					} else if len(box.Clients) == 1 && (message.Type == "offer" ||
+						message.Type == "answer" ||
+						message.Type == "ice-candidate" ||
+						message.Type == "declined-media-call-signal") {
+						fmt.Println("========================================================")
+						fmt.Println(message.Type + " " + message.SenderId)
+						fmt.Println("========================================================")
+						// receiverName, _, _ := h.UserServices.GetFullNameById(message.SenderId)
+						// newNotification := notification.MessageNotification{
+						// 	Token:  message.TokenDevice,
+						// 	Avatar: "",
+						// 	Title:  box.Clients[message.SenderId].FullName,
+						// 	Type:   message.Type,
+						// 	Body:   "1 tin nhắn mới",
+						// }
+						newOffer := &OfferNotification{
+							MessageBoxId: messageBoxId,
+							SenderId:     message.SenderId,
+							SenderName:   box.Clients[message.SenderId].FullName,
+							Sdp:          message.Sdp,
+							Candidate:    message.Candidate,
+							CallType:     message.CallType,
+							Type:         message.Type,
+							Token:        message.TokenDevice,
+						}
+						if receiver, ok := h.MasterRooms[message.ReceiverId]; ok {
+							receiver.ClientOnMasterRoom.OfferNotification <- newOffer
+						}
+						// go func() {
+						// 	notification.SendNotificationForCommingMessage(h.MessagingClient, newNotification,
+						// 		messageBoxId, message.ReceiverId, message.TokenDevice, receiverName)
+						// }()
+					}
+				}
+			}
 		}
 	}
 }
@@ -197,6 +337,7 @@ func (h *Hub) handleReadedMessageNotification(readedMessage *models.CommingMessa
 	if box, ok := h.MessageBoxes[messageBoxId]; ok {
 		newMessage := &models.Message{
 			SenderId:  userId,
+			Type:      readedMessage.Type,
 			Content:   content,
 			State:     "",
 			CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
@@ -205,55 +346,5 @@ func (h *Hub) handleReadedMessageNotification(readedMessage *models.CommingMessa
 		for _, client := range box.Clients {
 			client.Message <- newMessage
 		}
-	}
-}
-
-func (h *Hub) HandleCallRequest(caller *ClientOnMasterRoom, receiverId string) {
-	receiver := h.MasterRooms[receiverId]
-	if receiver.ClientOnMasterRoom == nil {
-		log.Println("Receiver not online")
-		return
-	}
-	// Create PeerConnection for caller
-	var err error
-	caller.PeerConnection, err = h.SetupPeerConnection()
-	if err != nil {
-		log.Println("Error setting up peer connection:", err)
-		return
-	}
-	// Set OnICECandidate for the caller
-	caller.PeerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
-		if c != nil {
-			caller.SendICECandidate(c.ToJSON())
-		}
-	})
-	// Create SDP offer
-	offer, err := caller.PeerConnection.CreateOffer(nil)
-	if err != nil {
-		log.Println("Error creating offer:", err)
-		return
-	}
-	// Set Remote description for caller
-	err = caller.PeerConnection.SetLocalDescription(offer)
-	if err != nil {
-		log.Println("Error setting local description:", err)
-		return
-	}
-	// Send SDP offer to recipient
-	message := VideoMessage{
-		Type:        "call_offer",
-		SessionDesc: &offer,
-	}
-	receiver.ClientOnMasterRoom.sendMessage(message)
-	// Handle call status
-	go handleCallStatus(caller, receiver.ClientOnMasterRoom)
-}
-
-func handleCallStatus(caller *ClientOnMasterRoom, receiver *ClientOnMasterRoom) {
-	time.Sleep(20 * time.Second)
-
-	// Kiểm tra xem receiver đã nhận cuộc gọi chưa
-	if receiver.PeerConnection == nil {
-		log.Println("Call missed for recipient:", receiver.UserId)
 	}
 }

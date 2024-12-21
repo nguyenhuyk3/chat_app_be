@@ -20,5 +20,7 @@ func InitFileRouter(r *gin.Engine) {
 
 	fileApi := api.NewFileApi()
 
-	r.POST("/file/upload_file", fileApi.UploadFile)
+	r.POST("/file/upload_video_file", fileApi.UploadVideoFile)
+	r.POST("/file/upload_audio_file", fileApi.UploadAudioFile)
+
 }

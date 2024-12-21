@@ -51,6 +51,7 @@ func (w *WebsocketApi) JoinMasterRoom(c *gin.Context) {
 	go clientOnMasterRoom.WriteAcceptNotification()
 	go clientOnMasterRoom.WriteUserStatus()
 	go clientOnMasterRoom.WriteLastStateForMessageBoxOnMasterRoom()
+	go clientOnMasterRoom.WriteOffer()
 	go clientOnMasterRoom.ReadMessages(w.WebsocketServices.Hub)
 }
 

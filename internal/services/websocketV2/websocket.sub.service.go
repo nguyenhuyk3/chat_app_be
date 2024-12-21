@@ -12,10 +12,17 @@ import (
 )
 
 func (w *WebsocketServices) saveBatchMessages(commingMessages []models.CommingMessage) (int, error) {
+	// Tạo map để gom nhóm tin nhắn theo MessageBoxId
+	messageBoxGroups := make(map[string][]models.CommingMessage)
+	for _, msg := range commingMessages {
+		messageBoxGroups[msg.MessageBoxId] = append(messageBoxGroups[msg.MessageBoxId], msg)
+	}
+
 	batch := w.FireStoreClient.BulkWriter(context.Background())
 
-	for _, commingMessage := range commingMessages {
-		docRef := w.FireStoreClient.Collection("messageBoxes").Doc(commingMessage.MessageBoxId)
+	// Xử lý từng messageBox một
+	for messageBoxId, messages := range messageBoxGroups {
+		docRef := w.FireStoreClient.Collection("messageBoxes").Doc(messageBoxId)
 		docSnap, err := docRef.Get(context.Background())
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to get messageBoxes: %v", err)
@@ -26,46 +33,59 @@ func (w *WebsocketServices) saveBatchMessages(commingMessages []models.CommingMe
 			return http.StatusInternalServerError, fmt.Errorf("failed to convert to messageBoxes: %v", err)
 		}
 
-		var stateForSender, stateForReceiver, stateForBoth string
-		if len(w.Hub.MessageBoxes[commingMessage.MessageBoxId].Clients) > 1 {
-			stateForSender = "đã đọc"
-			stateForReceiver = "đã đọc"
-			stateForBoth = "đã đọc"
-		} else {
-			stateForSender = "đã đọc"
-			stateForReceiver = "chưa đọc"
-			stateForBoth = "chưa đọc"
+		// Xử lý tất cả tin nhắn cho messageBox này
+		for _, commingMessage := range messages {
+			var stateForSender, stateForReceiver, stateForBoth string
+			if len(w.Hub.MessageBoxes[messageBoxId].Clients) > 1 {
+				stateForSender = "đã đọc"
+				stateForReceiver = "đã đọc"
+				stateForBoth = "đã đọc"
+			} else {
+				stateForSender = "đã đọc"
+				stateForReceiver = "chưa đọc"
+				stateForBoth = "chưa đọc"
+			}
+
+			newMessage := models.Message{
+				SenderId:  commingMessage.SenderId,
+				Type:      commingMessage.Type,
+				Content:   commingMessage.Content,
+				SendedId:  commingMessage.SendedId,
+				State:     stateForBoth,
+				CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
+			}
+
+			lastMessage := string(newMessage.Content)
+			if commingMessage.Type == "video" {
+				lastMessage = "Video"
+			} else if commingMessage.Type == "audio" {
+				lastMessage = "Audio"
+			} else if commingMessage.Type == "missed-media-call" {
+				lastMessage = "Cuộc gọi hội thoại đã bị bỏ lỡ anhiuemlove33333!@#@#@!!!****&(*&@(^&*()concak"
+			} else if commingMessage.Type == "completed-media-call" {
+				lastMessage = "Cuộc gọi hội thoại"
+			}
+
+			fmt.Println("lskjflksjfk ", lastMessage)
+
+			messageBox.Messages = append(messageBox.Messages, newMessage)
+
+			// Cập nhật trạng thái cuối cùng sau khi xử lý tất cả tin nhắn
+			messageBox.LastStateMessageForFirstUser = models.LastState{
+				UserId:      commingMessage.SenderId,
+				LastMessage: lastMessage,
+				LastTime:    time.Now().Format("2006-01-02 15:04:05"),
+				LastStatus:  stateForSender,
+			}
+			messageBox.LastStateMessageForSecondUser = models.LastState{
+				UserId:      commingMessage.ReceiverId,
+				LastMessage: lastMessage,
+				LastTime:    time.Now().Format("2006-01-02 15:04:05"),
+				LastStatus:  stateForReceiver,
+			}
 		}
 
-		newMessage := models.Message{
-			SenderId:  commingMessage.SenderId,
-			Type:      commingMessage.Type,
-			Content:   commingMessage.Content,
-			SendedId:  commingMessage.SendedId,
-			State:     stateForBoth,
-			CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
-		}
-
-		lastMessage := string(newMessage.Content)
-		if commingMessage.Type == "video" {
-			lastMessage = "Video"
-		}
-
-		messageBox.LastStateMessageForFirstUser = models.LastState{
-			UserId:      commingMessage.SenderId,
-			LastMessage: lastMessage,
-			LastTime:    time.Now().Format("2006-01-02 15:04:05"),
-			LastStatus:  stateForSender,
-		}
-		messageBox.LastStateMessageForSecondUser = models.LastState{
-			UserId:      commingMessage.ReceiverId,
-			LastMessage: lastMessage,
-			LastTime:    time.Now().Format("2006-01-02 15:04:05"),
-			LastStatus:  stateForReceiver,
-		}
-
-		messageBox.Messages = append(messageBox.Messages, newMessage)
-
+		// Chỉ thực hiện một lần update cho mỗi messageBox
 		if _, err := batch.Update(docRef, []firestore.Update{
 			{Path: "messages", Value: messageBox.Messages},
 			{Path: "lastStateMessageForFirstUser", Value: messageBox.LastStateMessageForFirstUser},
@@ -76,7 +96,6 @@ func (w *WebsocketServices) saveBatchMessages(commingMessages []models.CommingMe
 	}
 
 	batch.Flush()
-
 	return http.StatusOK, nil
 }
 

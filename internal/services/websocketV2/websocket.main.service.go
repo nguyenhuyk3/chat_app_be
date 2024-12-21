@@ -50,6 +50,9 @@ func (w *WebsocketServices) ProcessCommingMessages() {
 	for {
 		select {
 		case commingMessage := <-w.Hub.CommingMessage:
+			if commingMessage.Type == "audio" {
+				fmt.Println(commingMessage)
+			}
 			commingMessageBatch = append(commingMessageBatch, *commingMessage)
 
 			sort.Slice(commingMessageBatch, func(i, j int) bool {

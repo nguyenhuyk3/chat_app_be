@@ -3,7 +3,9 @@ package websocketv2
 import (
 	"be_chat_app/models"
 	"encoding/json"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
@@ -24,12 +26,25 @@ type LastStateForMessageBoxOnMasterRoom struct {
 	LastStatus        string `json:"lastStatus"`
 }
 
+type OfferNotification struct {
+	MessageBoxId    string                     `json:"messageBoxId"`
+	SenderId        string                     `json:"senderId"`
+	SenderName      string                     `json:"senderName"`
+	SenderAvatarUrl string                     `json:"senderAvatarUrl,omitempty"`
+	CallType        string                     `json:"callType"`
+	Type            string                     `json:"type"`
+	Token           string                     `json:"token"`
+	Sdp             *webrtc.SessionDescription `json:"sdp,omitempty"`
+	Candidate       *webrtc.ICECandidateInit   `json:"candidate,omitempty"`
+}
+
 type ClientOnMasterRoom struct {
 	Conn                               *websocket.Conn
 	PeerConnection                     *webrtc.PeerConnection
 	AcceptFriendNotification           chan *models.Notification
 	UserStatus                         chan *UserStatus
 	LastStateForMessageBoxOnMasterRoom chan *LastStateForMessageBoxOnMasterRoom
+	OfferNotification                  chan *OfferNotification
 	// DeviceToken              string `json:"deviceToken"`
 	UserId string `json:"userId"`
 	// UserName string `json:"userName"`
@@ -40,9 +55,11 @@ func NewClientOnMasterRoom(
 	userId string) *ClientOnMasterRoom {
 	return &ClientOnMasterRoom{
 		Conn:                               conn,
+		PeerConnection:                     nil,
 		AcceptFriendNotification:           make(chan *models.Notification),
 		UserStatus:                         make(chan *UserStatus, 2),
 		LastStateForMessageBoxOnMasterRoom: make(chan *LastStateForMessageBoxOnMasterRoom, 2),
+		OfferNotification:                  make(chan *OfferNotification),
 		UserId:                             userId,
 	}
 }
@@ -99,6 +116,20 @@ func (c *ClientOnMasterRoom) WriteLastStateForMessageBoxOnMasterRoom() {
 	}
 }
 
+func (c *ClientOnMasterRoom) WriteOffer() {
+	defer func() {
+		c.Conn.Close()
+	}()
+
+	for {
+		message, ok := <-c.OfferNotification
+		if !ok {
+			return
+		}
+		c.Conn.WriteJSON(message)
+	}
+}
+
 func (c *ClientOnMasterRoom) SendOnlineFriends(onlineFriends []string) {
 	message := map[string]interface{}{
 		"type":    "onlineFriends",
@@ -113,73 +144,55 @@ func (c *ClientOnMasterRoom) ReadMessages(h *Hub) {
 		h.ClientGetOutMasterRoom <- c
 	}()
 	for {
-		_, _, err := c.Conn.ReadMessage()
+		_, content, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error (ReadMessages [ClientOnMasterRoom]): %v", err)
 			}
+			c.Conn.Close()
 			break
 		}
-	}
-}
 
-type Message interface{}
+		var incomingData struct {
+			SenderId     string                     `json:"senderId"`
+			Token        string                     `json:"token"`
+			ReceiverId   string                     `json:"receiverId"`
+			MessageBoxId string                     `json:"messageBoxId"`
+			SendedId     string                     `json:"sendedId,omitempty"`
+			Type         string                     `json:"type"`
+			CallType     string                     `json:"callType,omitempty"`
+			Content      string                     `json:"content"`
+			Sdp          *webrtc.SessionDescription `json:"sdp,omitempty"`
+			Candidate    *webrtc.ICECandidateInit   `json:"candidate,omitempty"`
+		}
 
-func (c *ClientOnMasterRoom) sendMessage(message Message) {
-	// Encode the message as JSON
-	messageJSON, err := json.Marshal(message)
-	if err != nil {
-		log.Println("Error marshalling message:", err)
-		return
-	}
-	// Send message via WebSocket
-	err = c.Conn.WriteMessage(websocket.TextMessage, messageJSON)
-	if err != nil {
-		log.Println("Error sending message:", err)
-	}
-}
+		if err := json.Unmarshal(content, &incomingData); err != nil {
+			log.Printf("error unmarshalling message: %v", err)
+			continue
+		}
 
-type VideoMessage struct {
-	Type         string                     `json:"type"`
-	ICECandidate *webrtc.ICECandidateInit   `json:"ice_candidate,omitempty"`
-	SessionDesc  *webrtc.SessionDescription `json:"session_description,omitempty"`
-}
+		fmt.Println("lksjflks" + " " + incomingData.Type)
 
-// Gửi ICE Candidate
-func (c *ClientOnMasterRoom) SendICECandidate(candidate webrtc.ICECandidateInit) {
-	// Send candidate via WebSocket
-	message := VideoMessage{
-		Type:         "ice_candidate",
-		ICECandidate: &candidate,
-	}
-	c.sendMessage(message)
-}
+		if incomingData.Type == "answer" ||
+			incomingData.Type == "ice-candidate" ||
+			incomingData.Type == "declined-media-call-signal" ||
+			incomingData.Type == "declined-media-call-at-foreground" {
+			commingMessage := &models.CommingMessage{
+				MessageBoxId: incomingData.MessageBoxId,
+				SenderId:     incomingData.SenderId,
+				TokenDevice:  incomingData.Token,
+				ReceiverId:   incomingData.ReceiverId,
+				CallType:     incomingData.CallType,
+				Type:         incomingData.Type,
+				Content:      incomingData.Content,
+				Sdp:          incomingData.Sdp,
+				Candidate:    incomingData.Candidate,
+				SendedId:     "",
+				State:        "",
+				CreatedAt:    time.Now(),
+			}
 
-// Send SDP Offer
-func (c *ClientOnMasterRoom) SendCallOffer(offer webrtc.SessionDescription) {
-	message := VideoMessage{
-		Type:        "call_offer",
-		SessionDesc: &offer,
-	}
-	c.sendMessage(message)
-}
-
-func (c *ClientOnMasterRoom) SendSDP(sdp string) {
-	// Create message to send SDP
-	message := VideoMessage{
-		Type: "sdp_answer",
-		SessionDesc: &webrtc.SessionDescription{
-			Type: webrtc.SDPTypeAnswer,
-			SDP:  sdp,
-		},
-	}
-	c.sendMessage(message)
-}
-
-func handleICECandidate(candidate webrtc.ICECandidateInit, pc *webrtc.PeerConnection) {
-	// Add ICE candidate to Peer Connection
-	err := pc.AddICECandidate(candidate)
-	if err != nil {
-		log.Println("Error adding ICE candidate:", err)
+			h.BroadcastMessage <- commingMessage
+		}
 	}
 }
